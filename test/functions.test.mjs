@@ -188,6 +188,22 @@ test("opt-in and opt-out inputs are validated before writes", () => {
   assert.throws(() => validateInput(track, { attributes: [{ external_id: "user", email_subscribe: "invalid" }] }), /Invalid consent state/u);
   assert.throws(() => validateInput(track, { attributes: [{ external_id: "user", subscription_groups: [{ subscription_group_id: "group", subscription_state: "invalid" }] }] }), /Invalid subscription group/u);
   assert.throws(() => validateInput(track, { attributes: Array.from({ length: 75 }, () => ({})), events: [{}] }), /at most 75/u);
+
+  const emailStatus = functions.find(({ mcp }) => mcp === "change_email_subscription_status");
+  assert.ok(emailStatus);
+  assert.deepEqual(validateInput(emailStatus, { email: "a@example.com", subscription_state: "opted_in" }).email, ["a@example.com"]);
+  assert.throws(() => validateInput(emailStatus, { email: ["a@example.com"], subscription_state: "invalid" }), /Invalid or missing input/u);
+  assert.throws(() => validateInput(emailStatus, { email: Array.from({ length: 51 }, (_, index) => `user${index}@example.com`), subscription_state: "unsubscribed" }), /Invalid or missing input/u);
+
+  for (const mcp of ["query_unsubscribed_emails", "query_hard_bounced_emails"]) {
+    const query = functions.find((candidate) => candidate.mcp === mcp);
+    assert.ok(query, mcp);
+    assert.throws(() => validateInput(query, { end_date: "2026-08-01" }), /both start_date and end_date/u, mcp);
+    assert.throws(() => validateInput(query, { limit: 1 }), /Provide email or both/u, mcp);
+    assert.throws(() => validateInput(query, { start_date: "2026-07-01", end_date: "2026-08-01", limit: 501 }), /500 or less/u, mcp);
+    assert.deepEqual(validateInput(query, { email: "a@example.com" }).email, "a@example.com", mcp);
+    assert.equal(validateInput(query, { start_date: "2026-07-01", end_date: "2026-08-01", limit: 500 }).limit, 500, mcp);
+  }
   assert.throws(() => validateInput(send, { broadcast: true }), /at least one/u);
   assert.throws(() => validateInput(send, { external_user_ids: ["user"], recipient_subscription_state: "invalid" }), /Invalid or missing input/u);
   assert.throws(() => validateInput(invalidPhones, {}), /phone_numbers or both/u);
