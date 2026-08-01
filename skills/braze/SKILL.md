@@ -48,6 +48,8 @@ braze campaign get --campaign-id <id>
 braze campaign data-series --campaign-id <id> --length 7
 ```
 
+Inspect the exact leaf `--help` before constructing a request. It includes the detailed purpose, permission, REST request, authoritative Braze documentation URL, safe JSON input, executable command, and typed option constraints. Follow the linked Braze page when nested object semantics or provider behavior affect the request.
+
 Use the smallest useful time range or page. The CLI does not auto-paginate. A successful empty array proves the endpoint worked but not that the workspace contains matching data.
 
 ## Protect consent changes

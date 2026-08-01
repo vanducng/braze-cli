@@ -21,24 +21,6 @@ function run(args, options) {
   });
 }
 
-function sample(parameter) {
-  if (parameter.type === "integer" || parameter.type === "positive") return 1;
-  if (parameter.type === "boolean") return true;
-  if (parameter.type === "string[]") return ["tag"];
-  if (parameter.type === "object") return { value: "sample" };
-  if (parameter.type === "object[]") return [{ value: "sample" }];
-  if (parameter.name.endsWith("_at") || parameter.name.includes("time")) return "2026-01-01T00:00:00Z";
-  return `${parameter.name}/value`;
-}
-
-function minimalInput(definition) {
-  const input = {};
-  for (const parameter of definition.parameters.filter(({ required }) => required)) input[parameter.name] = sample(parameter);
-  for (const group of definition.exactlyOne ?? []) input[group[0]] = sample(definition.parameters.find(({ name }) => name === group[0]));
-  for (const group of definition.atLeastOne ?? []) input[group[0]] = sample(definition.parameters.find(({ name }) => name === group[0]));
-  return input;
-}
-
 async function serverFixture(t) {
   const requests = [];
   let response = { status: 200, body: '{"accepted":true}', delay: 0, headers: {} };
@@ -60,11 +42,12 @@ async function serverFixture(t) {
   };
 }
 
-test("all 70 REST functions construct and send their documented request", async (t) => {
+test("all 70 REST functions construct and send their documented example", async (t) => {
   const fixture = await serverFixture(t);
   const config = { endpoint: fixture.endpoint, apiKey: "test-key" };
   for (const definition of functions.filter(({ method }) => method)) {
-    const input = minimalInput(definition);
+    const input = definition.exampleInput;
+    assert.ok(input, commandPath(definition));
     const result = await executeRequest(definition, input, config);
     assert.deepEqual(result, { accepted: true }, commandPath(definition));
     const request = fixture.requests.at(-1);
@@ -161,6 +144,23 @@ test("JSON input works, explicit flags win, and errors use stderr only", async (
   assert.equal(JSON.parse(failure.stderr).error.code, "validation_error");
 });
 
+test("leaf help includes details, authoritative docs, and executable JSON examples", () => {
+  const readHelp = spawnSync(process.execPath, [binary.pathname, "campaign", "get", "--help"], { encoding: "utf8" });
+  assert.equal(readHelp.status, 0, readHelp.stderr);
+  assert.match(readHelp.stdout, /Retrieve configuration and message metadata/u);
+  assert.match(readHelp.stdout, /Permission: campaigns\.details/u);
+  assert.match(readHelp.stdout, /Request: GET \/campaigns\/details/u);
+  assert.match(readHelp.stdout, /https:\/\/www\.braze\.com\/docs\/api\/endpoints\/export\/campaigns\/get_campaign_details/u);
+  assert.match(readHelp.stdout, /Example JSON input:/u);
+  assert.match(readHelp.stdout, /braze campaign get --input/u);
+
+  const writeHelp = spawnSync(process.execPath, [binary.pathname, "subscription", "update", "--help"], { encoding: "utf8" });
+  assert.equal(writeHelp.status, 0, writeHelp.stderr);
+  assert.match(writeHelp.stdout, /Subscribe or unsubscribe up to 50 users/u);
+  assert.match(writeHelp.stdout, /--input .* --confirm/u);
+  assert.match(writeHelp.stdout, /subscription_state; string; required; one\s+of: subscribed, unsubscribed/u);
+});
+
 test("workspace output is useful and never exposes the API key", () => {
   const directory = mkdtempSync(join(tmpdir(), "braze-workspace-"));
   writeFileSync(join(directory, ".env"), "braze_host:https://rest.example.com\nbraze_api_token:do-not-print\nbraze_login:app-id\n");
@@ -185,7 +185,7 @@ test("login persists credentials for commands from another directory", async (t)
 
   const help = spawnSync(process.execPath, [binary.pathname, "login", "--help"], { cwd: neutral, env, encoding: "utf8" });
   assert.equal(help.status, 0, help.stderr);
-  assert.match(help.stdout, /Save the current Braze credentials/u);
+  assert.match(help.stdout, /Resolve Braze credentials/u);
   assert.doesNotMatch(help.stdout, /--input/u);
   const login = spawnSync(process.execPath, [binary.pathname, "login"], { cwd: source, env, encoding: "utf8" });
   assert.equal(login.status, 0, login.stderr);

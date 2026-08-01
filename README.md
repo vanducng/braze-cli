@@ -57,7 +57,14 @@ Success writes one Braze JSON value to stdout. Failures write one redacted JSON 
 
 All 33 write commands require `--confirm`. Review the request before adding it. Live tests are read-only; writes are tested against a local server.
 
-See the generated [command reference](docs/commands.md) for all 72 commands, permissions, endpoints, and flags.
+Every leaf command provides a detailed purpose, required permission, REST request, authoritative Braze documentation URL, safe JSON input, executable CLI example, and typed option constraints:
+
+```sh
+braze campaign get --help
+braze subscription update --help
+```
+
+See the generated [command reference](docs/commands.md) for the same agent-ready documentation across all 72 commands.
 
 Agents can use the packaged [`$braze` skill](skills/braze/SKILL.md) for safe discovery, consent operations, error handling, and delivery verification.
 

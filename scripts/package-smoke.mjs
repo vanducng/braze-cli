@@ -43,6 +43,10 @@ try {
   const help = spawnSync(binary, ["--help"], { encoding: "utf8" }).stdout;
   assert.match(help, /campaign/u);
   assert.match(help, /login/u);
+  const leafHelp = spawnSync(binary, ["subscription", "update", "--help"], { encoding: "utf8" }).stdout;
+  assert.match(leafHelp, /Documentation: https:\/\/www\.braze\.com\/docs\/api\/endpoints\/subscription_groups/u);
+  assert.match(leafHelp, /Example JSON input:/u);
+  assert.match(leafHelp, /--input .* --confirm/u);
   const workspace = spawnSync(binary, ["workspace", "list"], { cwd: prefix, env: cleanEnv, encoding: "utf8" });
   assert.equal(workspace.status, 0, workspace.stderr);
   assert.deepEqual(JSON.parse(workspace.stdout), { workspaces: [{ rest_endpoint: null, app_id: null, api_key_configured: false }] });

@@ -129,6 +129,21 @@ test("every path placeholder has a required parameter", () => {
   }
 });
 
+test("every function has detailed agent documentation and a valid example", () => {
+  const remote = functions.filter(({ method }) => method);
+  assert.equal(new Set(remote.map(({ documentation }) => documentation)).size, 70);
+  for (const definition of functions) {
+    assert.ok(definition.description.length >= 60, `${commandPath(definition)}: description`);
+    const documentation = new URL(definition.documentation);
+    assert.equal(documentation.protocol, "https:", commandPath(definition));
+    if (!definition.method) continue;
+    assert.equal(documentation.hostname, "www.braze.com", commandPath(definition));
+    assert.ok(definition.exampleInput, `${commandPath(definition)}: example input`);
+    assert.doesNotMatch(JSON.stringify(definition.exampleInput), /api[_-]?key|secret|token/iu, commandPath(definition));
+    assert.deepEqual(validateInput(definition, definition.exampleInput), definition.exampleInput, commandPath(definition));
+  }
+});
+
 test("analytics lengths are validated as integers", () => {
   for (const command of ["campaign data-series", "canvas data-series", "canvas data-summary", "event data-series", "kpi dau", "kpi mau", "kpi new-users", "kpi uninstalls", "purchase quantity-series", "purchase revenue-series", "segment data-series", "send data-series", "session data-series"]) {
     const definition = functions.find((candidate) => commandPath(candidate) === command);

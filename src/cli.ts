@@ -129,6 +129,33 @@ function optionAttribute(option: Option): string {
   return option.attributeName();
 }
 
+function optionDescription(parameter: Parameter): string {
+  const details = [parameter.name, parameter.type];
+  if (parameter.required) details.push("required");
+  if (parameter.choices) details.push(`one of: ${parameter.choices.join(", ")}`);
+  if (parameter.maxItems) details.push(`maximum ${parameter.maxItems} items`);
+  return details.join("; ");
+}
+
+function commandHelp(definition: FunctionDefinition): string {
+  const command = `braze ${definition.command.join(" ")}`;
+  const input = definition.exampleInput === undefined ? undefined : JSON.stringify(definition.exampleInput);
+  const request = definition.method ? `${definition.method} ${definition.path}` : "local";
+  const example = input ? `${command} --input '${input}'${definition.access === "write" ? " --confirm" : ""}` : command;
+  return [
+    "",
+    "Details:",
+    `  Function: ${definition.mcp}`,
+    `  Permission: ${definition.permission}`,
+    `  Request: ${request}`,
+    `  Documentation: ${definition.documentation}`,
+    ...(input ? ["", "Example JSON input:", `  ${input}`] : []),
+    "",
+    "Example command:",
+    `  ${example}`,
+  ].join("\n");
+}
+
 function findOrCreate(parent: Command, name: string): Command {
   return parent.commands.find((command) => command.name() === name) ?? parent.command(name);
 }
@@ -143,11 +170,11 @@ export function createProgram(version: string, write: (value: unknown) => void =
   for (const definition of functions) {
     let parent = program;
     for (const group of definition.command.slice(0, -1)) parent = findOrCreate(parent, group);
-    const leaf = parent.command(definition.command.at(-1) ?? "").description(definition.description ?? `${definition.mcp} (${definition.permission})`);
+    const leaf = parent.command(definition.command.at(-1) ?? "").description(definition.description).addHelpText("after", commandHelp(definition));
     if (definition.mcp !== "login") leaf.addOption(new Option("--input <json|@file>", "JSON input object or @file"));
     if (definition.access === "write") leaf.addOption(new Option("--confirm", "confirm the write operation"));
     for (const parameter of definition.parameters) {
-      leaf.addOption(new Option(`--${flagName(parameter)} <value>`, parameter.name));
+      leaf.addOption(new Option(`--${flagName(parameter)} <value>`, optionDescription(parameter)));
     }
     leaf.action(async (options: Record<string, unknown>) => {
       if (definition.access === "write" && options.confirm !== true) throw new CliError("confirmation_required", "Write commands require --confirm.", { nextSteps: ["Review the request, then rerun with --confirm."] });

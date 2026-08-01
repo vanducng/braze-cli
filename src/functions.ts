@@ -1,3 +1,5 @@
+import { functionDocumentation } from "./function-docs.ts";
+
 export type Access = "read" | "write" | "local";
 export type ParameterType = "string" | "integer" | "positive" | "boolean" | "string[]" | "object" | "object[]" | "file";
 
@@ -15,7 +17,9 @@ export type FunctionDefinition = {
   mcp: string;
   permission: string;
   access: Access;
-  description?: string;
+  description: string;
+  documentation: string;
+  exampleInput?: Record<string, unknown>;
   method?: "GET" | "POST";
   path?: string;
   parameters: Parameter[];
@@ -24,6 +28,8 @@ export type FunctionDefinition = {
   notTogether?: string[][];
 };
 
+type UndocumentedFunction = Omit<FunctionDefinition, "description" | "documentation" | "exampleInput">;
+
 const s = (name: string, required = false, flag?: string): Parameter => ({ name, type: "string", required, flag });
 const i = (name: string, required = false): Parameter => ({ name, type: "integer", required });
 const n = (name: string): Parameter => ({ name, type: "positive" });
@@ -31,6 +37,11 @@ const b = (name: string): Parameter => ({ name, type: "boolean" });
 const a = (name: string, required = false, maxItems?: number): Parameter => ({ name, type: "string[]", required, maxItems });
 const o = (name: string, required = false): Parameter => ({ name, type: "object", required });
 const oa = (name: string, required = false, maxItems?: number): Parameter => ({ name, type: "object[]", required, maxItems });
+const documented = (definition: UndocumentedFunction): FunctionDefinition => {
+  const documentation = functionDocumentation[definition.mcp as keyof typeof functionDocumentation];
+  if (!documentation) throw new Error(`Missing documentation for ${definition.mcp}.`);
+  return { ...definition, ...documentation };
+};
 const read = (
   command: string,
   mcp: string,
@@ -38,7 +49,7 @@ const read = (
   path: string,
   parameters: Parameter[] = [],
   rules: Pick<FunctionDefinition, "exactlyOne" | "atLeastOne" | "notTogether"> = {},
-): FunctionDefinition => ({ command: command.split(" "), mcp, permission, access: "read", method: "GET", path, parameters, ...rules });
+): FunctionDefinition => documented({ command: command.split(" "), mcp, permission, access: "read", method: "GET", path, parameters, ...rules });
 const write = (
   command: string,
   mcp: string,
@@ -46,7 +57,7 @@ const write = (
   path: string,
   parameters: Parameter[],
   rules: Pick<FunctionDefinition, "exactlyOne" | "atLeastOne" | "notTogether"> = {},
-): FunctionDefinition => ({ command: command.split(" "), mcp, permission, access: "write", method: "POST", path, parameters, ...rules });
+): FunctionDefinition => documented({ command: command.split(" "), mcp, permission, access: "write", method: "POST", path, parameters, ...rules });
 
 const listParams = [i("page"), b("include_archived"), s("sort_direction"), s("last_edit.time[gt]", false, "last-edit-time-gt")];
 const rangeParams = [i("length", true), s("ending_at"), s("app_id")];
@@ -55,8 +66,8 @@ const blockState = { ...s("state"), choices: ["active", "draft"] };
 const blockFields = [s("name"), s("content"), s("description"), blockState, a("tags")];
 
 export const functions: FunctionDefinition[] = [
-  { command: ["login"], mcp: "login", permission: "local", access: "local", description: "Save the current Braze credentials for use from any directory", parameters: [] },
-  { command: ["workspace", "list"], mcp: "get_workspaces", permission: "local", access: "local", parameters: [] },
+  documented({ command: ["login"], mcp: "login", permission: "local", access: "local", parameters: [] }),
+  documented({ command: ["workspace", "list"], mcp: "get_workspaces", permission: "local", access: "local", parameters: [] }),
   read("campaign list", "get_campaign_list", "campaigns.list", "/campaigns/list", listParams),
   read("campaign get", "get_campaign_details", "campaigns.details", "/campaigns/details", [s("campaign_id", true), b("post_launch_draft_version"), b("include_has_translatable_content")]),
   read("campaign data-series", "get_campaign_dataseries", "campaigns.data_series", "/campaigns/data_series", [s("campaign_id", true), i("length", true), s("ending_at")]),
