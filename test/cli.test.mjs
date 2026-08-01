@@ -49,7 +49,7 @@ async function serverFixture(t) {
   };
 }
 
-test("all 70 REST functions construct and send their documented example", async (t) => {
+test("all 74 REST functions construct and send their documented example", async (t) => {
   const fixture = await serverFixture(t);
   const config = { endpoint: fixture.endpoint, apiKey: "test-key" };
   for (const definition of functions.filter(({ method }) => method)) {
@@ -76,7 +76,7 @@ test("all 70 REST functions construct and send their documented example", async 
       assert.deepEqual(JSON.parse(request.body), Object.fromEntries(expectedValues), commandPath(definition));
     }
   }
-  assert.equal(fixture.requests.length, 70);
+  assert.equal(fixture.requests.length, 74);
 });
 
 test("media file input uses multipart", async (t) => {

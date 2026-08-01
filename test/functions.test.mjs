@@ -55,10 +55,14 @@ send data-series
 session data-series
 sms invalid-phone list
 sms invalid-phone remove
+email unsubscribes
+email hard-bounces
+email status
 subscription group-status
 subscription user-groups
 subscription update
 subscription update-v2
+user export-ids
 user alias create
 user alias update
 user delete
@@ -78,11 +82,11 @@ content-block create
 content-block update
 `.trim().split("\n");
 
-test("catalog exactly matches the approved 72-command contract", () => {
+test("catalog exactly matches the approved 76-command contract", () => {
   assert.deepEqual(functions.map(commandPath), expected);
-  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 72);
-  assert.equal(functions.filter(({ access }) => access === "write").length, 33);
-  assert.equal(functions.filter(({ method }) => method).length, 70);
+  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 76);
+  assert.equal(functions.filter(({ access }) => access === "write").length, 34);
+  assert.equal(functions.filter(({ method }) => method).length, 74);
 });
 
 test("linked Braze categories include every indexed endpoint", () => {
@@ -108,7 +112,9 @@ test("linked Braze categories include every indexed endpoint", () => {
     "/canvas/duplicate",
     "/messages/live_activity/update",
   ]);
+  assert.deepEqual(paths("email"), ["/email/unsubscribes", "/email/hard_bounces", "/email/status"]);
   assert.deepEqual(paths("user"), [
+    "/users/export/ids",
     "/users/alias/new",
     "/users/alias/update",
     "/users/delete",
@@ -131,7 +137,7 @@ test("every path placeholder has a required parameter", () => {
 
 test("every function has detailed agent documentation and a valid example", () => {
   const remote = functions.filter(({ method }) => method);
-  assert.equal(new Set(remote.map(({ documentation }) => documentation)).size, 70);
+  assert.equal(new Set(remote.map(({ documentation }) => documentation)).size, 74);
   for (const definition of functions) {
     assert.ok(definition.description.length >= 60, `${commandPath(definition)}: description`);
     const documentation = new URL(definition.documentation);

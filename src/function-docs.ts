@@ -261,6 +261,21 @@ export const functionDocumentation = {
     documentation: `${api}/sms/post_remove_invalid_numbers`,
     exampleInput: { phone_numbers: ["+15555550123"] },
   },
+  query_unsubscribed_emails: {
+    description: "List email addresses that unsubscribed in a date range, each with its unsubscribed_at timestamp. Use for opt-out reconciliation and backfill; the payload carries no external ID, channel, or subscription group.",
+    documentation: `${api}/email/get_query_unsubscribed_email_addresses`,
+    exampleInput: { start_date: "2026-07-01", end_date: "2026-08-01", limit: 500 },
+  },
+  query_hard_bounced_emails: {
+    description: "List email addresses that hard bounced in a date range, each with its hard_bounced_at timestamp. Hard bounces are deliverability failures, not consent withdrawals.",
+    documentation: `${api}/email/get_query_hard_bounces`,
+    exampleInput: { start_date: "2026-07-01", end_date: "2026-08-01", limit: 500 },
+  },
+  change_email_subscription_status: {
+    description: "Set the account-level email subscription state for one or more addresses. This global state supersedes subscription groups on send, so a group-level unsubscribe alone does not globally unsubscribe a user.",
+    documentation: `${api}/email/post_email_subscription_status`,
+    exampleInput: { email: ["<email>"], subscription_state: "unsubscribed" },
+  },
   get_subscription_group_status: {
     description: "Read each identified user's subscribed or unsubscribed state within one email, SMS, or WhatsApp subscription group.",
     documentation: `${api}/subscription_groups/get_list_user_subscription_group_status`,
@@ -280,6 +295,11 @@ export const functionDocumentation = {
     description: "Apply subscription state changes across multiple groups, using exactly one identifier type per group update.",
     documentation: `${api}/subscription_groups/post_update_user_subscription_group_status_v2`,
     exampleInput: { subscription_groups: [{ subscription_group_id: "<subscription-group-id>", subscription_state: "subscribed", external_ids: ["<external-id>"] }] },
+  },
+  export_users_by_identifier: {
+    description: "Export user profiles by identifier, including the account-level email_subscribe and push_subscribe states and subscription group membership. This is the only way to read a user's global subscription state, which overrides group-level status on send.",
+    documentation: `${api}/export/user_data/post_users_identifier`,
+    exampleInput: { external_ids: ["<external-id>"], fields_to_export: ["external_id", "email", "email_subscribe", "subscription_groups"] },
   },
   create_user_alias: {
     description: "Attach one or more alias name and label pairs to existing user profiles identified by external ID or user alias.",

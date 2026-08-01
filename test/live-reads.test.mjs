@@ -25,7 +25,7 @@ function response(path) {
   return { data: [] };
 }
 
-test("live-read runner exercises all 37 reads without exposing fixtures", async (t) => {
+test("live-read runner exercises all 40 reads without exposing fixtures", async (t) => {
   const server = createServer((request, reply) => {
     const url = new URL(request.url, "http://localhost");
     const missingFixture = url.pathname.includes("braze-cli-missing-fixture") || [...url.searchParams.values()].includes("braze-cli-missing-fixture");
@@ -56,6 +56,6 @@ test("live-read runner exercises all 37 reads without exposing fixtures", async 
   assert.equal(result.stderr, "");
   assert.doesNotMatch(result.stdout, new RegExp(secret, "u"));
   const summary = JSON.parse(result.stdout);
-  assert.deepEqual({ ok: summary.ok, total: summary.total, passed: summary.passed, failed: summary.failed, blocked: summary.blocked }, { ok: true, total: 37, passed: 37, failed: 0, blocked: 0 });
+  assert.deepEqual({ ok: summary.ok, total: summary.total, passed: summary.passed, failed: summary.failed, blocked: summary.blocked }, { ok: true, total: 40, passed: 40, failed: 0, blocked: 0 });
   assert.equal(summary.results.filter(({ verification }) => verification === "authorized_no_fixture").length, 3);
 });
