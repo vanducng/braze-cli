@@ -8,15 +8,33 @@ function valueToString(value: unknown): string {
   return typeof value === "string" ? value : String(value);
 }
 
-function providerError(status: number, retryAfter: string | null, allowRetry: boolean): CliError {
+function retryAfterSeconds(value: string | null): number | undefined {
+  return value && /^\d{1,5}$/u.test(value) && Number(value) <= 86_400 ? Number(value) : undefined;
+}
+
+function rateLimitReset(value: string | null): number | undefined {
+  if (!value || !/^\d{10}$/u.test(value)) return undefined;
+  const epochSeconds = Number(value);
+  return epochSeconds > Date.now() / 1_000 - 60 && epochSeconds <= Date.now() / 1_000 + 86_400 ? epochSeconds : undefined;
+}
+
+function retryDelayMs(attempt: number, retryAfter: string | null, reset: string | null = null): number {
+  const seconds = retryAfterSeconds(retryAfter);
+  const resetAt = rateLimitReset(reset);
+  const providerDelay = seconds === undefined ? (resetAt === undefined ? undefined : Math.max(0, resetAt * 1_000 - Date.now())) : seconds * 1_000;
+  return providerDelay === undefined ? 250 * 2 ** (attempt - 1) : Math.min(providerDelay, 5_000);
+}
+
+function providerError(status: number, retryAfterHeader: string | null, resetHeader: string | null, allowRetry: boolean, attempts = 1): CliError {
   const retryable = allowRetry && (status === 429 || status >= 500);
-  const retryAfterSeconds = retryAfter && /^\d{1,5}$/u.test(retryAfter) && Number(retryAfter) <= 86_400 ? Number(retryAfter) : undefined;
+  const retryAfter = retryAfterSeconds(retryAfterHeader);
+  const reset = rateLimitReset(resetHeader);
   const code = status === 401 ? "authentication_error" : status === 403 ? "permission_error" : status === 404 ? "not_found" : status === 429 ? "rate_limited" : status >= 500 ? "provider_unavailable" : "provider_error";
   const message = status === 401 ? "Braze rejected the API key." : status === 403 ? "The API key lacks permission for this command." : status === 404 ? "The requested Braze resource was not found." : status === 429 ? "Braze rate-limited the request." : status >= 500 ? "Braze is temporarily unavailable." : "Braze rejected the request.";
   return new CliError(code, message, {
     retryable,
     nextSteps: retryable ? ["Retry the command after the provider recovers."] : status === 429 || status >= 500 ? ["Check Braze for a completed write before taking further action."] : ["Check the command inputs and API key permission."],
-    details: { status, ...(retryAfterSeconds === undefined ? {} : { retry_after_seconds: retryAfterSeconds }) },
+    details: { status, ...(retryAfter === undefined ? {} : { retry_after_seconds: retryAfter }), ...(reset === undefined ? {} : { x_rate_limit_reset: reset }), ...(attempts > 1 ? { attempts } : {}) },
   });
 }
 
@@ -53,18 +71,37 @@ export async function executeRequest(
     body = JSON.stringify(Object.fromEntries(values));
   }
 
-  let response: Response;
-  try {
-    response = await fetch(url, { method: definition.method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
-  } catch (error) {
-    const retryable = definition.access === "read";
-    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      throw new CliError("timeout", "The Braze request timed out.", { retryable, nextSteps: retryable ? ["Retry the command."] : ["Check Braze for a completed write before taking further action."] });
+  const maxAttempts = definition.access === "read" ? 3 : 1;
+  let response: Response | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      response = await fetch(url, { method: definition.method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (error) {
+      const retryable = definition.access === "read";
+      if (retryable && attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt, null)));
+        continue;
+      }
+      const details = attempt > 1 ? { attempts: attempt } : undefined;
+      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+        throw new CliError("timeout", "The Braze request timed out.", { retryable, nextSteps: retryable ? ["Retry the command."] : ["Check Braze for a completed write before taking further action."], details });
+      }
+      throw new CliError("network_error", "The Braze request could not be completed.", { retryable, nextSteps: retryable ? ["Check the endpoint and network, then retry."] : ["Check Braze for a completed write before taking further action."], details });
     }
-    throw new CliError("network_error", "The Braze request could not be completed.", { retryable, nextSteps: retryable ? ["Check the endpoint and network, then retry."] : ["Check Braze for a completed write before taking further action."] });
+    if (!response) continue;
+    if (response.ok) break;
+    const retryableStatus = response.status === 429 || response.status >= 500;
+    const retryAfter = response.headers.get("retry-after");
+    const reset = response.headers.get("x-ratelimit-reset");
+    if (definition.access === "read" && retryableStatus && attempt < maxAttempts) {
+      await response.body?.cancel();
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt, retryAfter, reset)));
+      continue;
+    }
+    throw providerError(response.status, retryAfter, reset, definition.access === "read", attempt);
   }
 
-  if (!response.ok) throw providerError(response.status, response.headers.get("retry-after"), definition.access === "read");
+  if (!response) throw new CliError("network_error", "The Braze request could not be completed.");
   if (response.status === 204) return null;
   const text = await response.text();
   if (!text) return null;

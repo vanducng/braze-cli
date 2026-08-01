@@ -11,9 +11,9 @@ status: pre-pr
 
 ## What shipped
 
-- `braze-cli@0.1.0` is ready as a locally packed CLI with 42 category-first commands covering 41 Braze REST endpoints plus local workspace configuration discovery.
-- One declarative command catalog drives Commander registration, validation, generated documentation, and endpoint tests.
-- Direct REST execution uses native `fetch`, Bearer authentication, bounded timeouts, JSON requests, and multipart media upload without an SDK or MCP transport.
+- `braze-cli@0.1.0` is ready as a locally packed CLI with 42 category-first commands and local workspace configuration discovery.
+- One declarative command catalog drives Commander registration, validation, generated documentation, and integration tests.
+- Braze requests use native `fetch`, Bearer authentication, bounded timeouts, JSON payloads, and multipart media upload.
 
 ## Why this shape
 

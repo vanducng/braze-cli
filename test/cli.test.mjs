@@ -10,6 +10,13 @@ import { commandPath, functions } from "../lib/functions.js";
 
 const binary = new URL("../lib/index.js", import.meta.url);
 
+function savedConfig(directory, endpoint, apiKey, appId) {
+  const root = join(directory, "config");
+  mkdirSync(join(root, "braze"), { recursive: true });
+  writeFileSync(join(root, "braze", "config.json"), JSON.stringify({ BRAZE_REST_ENDPOINT: endpoint, BRAZE_API_KEY: apiKey, ...(appId ? { BRAZE_APP_ID: appId } : {}) }));
+  return { PATH: process.env.PATH, XDG_CONFIG_HOME: root };
+}
+
 function run(args, options) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [binary.pathname, ...args], options);
@@ -89,10 +96,11 @@ test("provider failures are classified without leaking credentials or payloads",
   const definition = functions.find(({ mcp }) => mcp === "get_campaign_list");
   const cases = [[400, "provider_error", false], [401, "authentication_error", false], [403, "permission_error", false], [404, "not_found", false], [429, "rate_limited", true], [500, "provider_unavailable", true]];
   for (const [status, code, retryable] of cases) {
-    fixture.respond({ status, body: '{"secret":"provider details"}', headers: status === 429 ? { "Retry-After": "2" } : {} });
+    fixture.respond({ status, body: '{"secret":"provider details"}', headers: status === 429 ? { "Retry-After": "0", "X-RateLimit-Reset": String(Math.ceil(Date.now() / 1_000)) } : {} });
     await assert.rejects(() => executeRequest(definition, {}, { endpoint: fixture.endpoint, apiKey: "test-secret" }), (error) => {
       assert.equal(error.code, code);
       assert.equal(error.retryable, retryable);
+      if (status === 429) assert.equal(typeof error.details.x_rate_limit_reset, "number");
       assert.doesNotMatch(JSON.stringify(error), /test-secret|provider details/u);
       return true;
     });
@@ -101,6 +109,21 @@ test("provider failures are classified without leaking credentials or payloads",
   await assert.rejects(() => executeRequest(definition, {}, { endpoint: fixture.endpoint, apiKey: "key" }), { code: "invalid_response" });
   fixture.respond({ status: 200, body: '{}', delay: 50 });
   await assert.rejects(() => executeRequest(definition, {}, { endpoint: fixture.endpoint, apiKey: "key" }, 5), { code: "timeout" });
+});
+
+test("read commands retry transient failures with backoff", async (t) => {
+  let attempts = 0;
+  const server = createServer((_request, response) => {
+    attempts += 1;
+    response.writeHead(attempts < 3 ? 500 : 200, { "Content-Type": "application/json" });
+    response.end(attempts < 3 ? '{}' : '{"campaigns":[]}');
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const definition = functions.find(({ mcp }) => mcp === "get_campaign_list");
+  const result = await executeRequest(definition, {}, { endpoint: `http://127.0.0.1:${server.address().port}`, apiKey: "key" });
+  assert.deepEqual(result, { campaigns: [] });
+  assert.equal(attempts, 3);
 });
 
 test("write failures never invite an unsafe retry and headers are bounded", async (t) => {
@@ -114,7 +137,9 @@ test("write failures never invite an unsafe retry and headers are bounded", asyn
     return true;
   });
   fixture.respond({ status: 500, body: '{}', headers: {} });
+  const requestsBeforeFailure = fixture.requests.length;
   await assert.rejects(() => executeRequest(definition, input, { endpoint: fixture.endpoint, apiKey: "key" }), { retryable: false });
+  assert.equal(fixture.requests.length, requestsBeforeFailure + 1);
   fixture.respond({ status: 200, body: '{}', delay: 50 });
   await assert.rejects(() => executeRequest(definition, input, { endpoint: fixture.endpoint, apiKey: "key" }, 5), { code: "timeout", retryable: false });
 });
@@ -131,7 +156,7 @@ test("all write commands require confirmation before config or validation", () =
 test("JSON input works, explicit flags win, and errors use stderr only", async (t) => {
   const fixture = await serverFixture(t);
   const directory = mkdtempSync(join(tmpdir(), "braze-cli-"));
-  const env = { ...process.env, BRAZE_REST_ENDPOINT: fixture.endpoint, BRAZE_API_KEY: "test-key" };
+  const env = savedConfig(directory, fixture.endpoint, "test-key");
   const success = await run(["campaign", "get", "--input", '{"campaign_id":"from-json"}', "--campaign-id", "from-flag"], { cwd: directory, env });
   assert.equal(success.status, 0, success.stderr);
   assert.equal(success.stderr, "");
@@ -163,8 +188,8 @@ test("leaf help includes details, authoritative docs, and executable JSON exampl
 
 test("workspace output is useful and never exposes the API key", () => {
   const directory = mkdtempSync(join(tmpdir(), "braze-workspace-"));
-  writeFileSync(join(directory, ".env"), "braze_host:https://rest.example.com\nbraze_api_token:do-not-print\nbraze_login:app-id\n");
-  const result = spawnSync(process.execPath, [binary.pathname, "workspace", "list"], { cwd: directory, env: { XDG_CONFIG_HOME: join(directory, "config") }, encoding: "utf8" });
+  const env = savedConfig(directory, "https://rest.example.com", "do-not-print", "app-id");
+  const result = spawnSync(process.execPath, [binary.pathname, "workspace", "list"], { cwd: directory, env, encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, "");
   assert.doesNotMatch(result.stdout, /do-not-print/u);
@@ -174,22 +199,20 @@ test("workspace output is useful and never exposes the API key", () => {
 test("login persists credentials for commands from another directory", async (t) => {
   const fixture = await serverFixture(t);
   const directory = mkdtempSync(join(tmpdir(), "braze-login-"));
-  const source = join(directory, "source");
   const neutral = join(directory, "neutral");
   const configRoot = join(directory, "config");
   const configFile = join(configRoot, "braze", "config.json");
   const env = { PATH: process.env.PATH, XDG_CONFIG_HOME: configRoot };
-  mkdirSync(source);
   mkdirSync(neutral);
-  writeFileSync(join(source, ".env"), `BRAZE_APP_ID=test-app\nBRAZE_REST_ENDPOINT=${fixture.endpoint}\nBRAZE_API_KEY=do-not-print\n`);
 
   const help = spawnSync(process.execPath, [binary.pathname, "login", "--help"], { cwd: neutral, env, encoding: "utf8" });
   assert.equal(help.status, 0, help.stderr);
-  assert.match(help.stdout, /Resolve Braze credentials/u);
+  assert.match(help.stdout, /Interactively save/u);
   assert.doesNotMatch(help.stdout, /--input/u);
-  const login = spawnSync(process.execPath, [binary.pathname, "login"], { cwd: source, env, encoding: "utf8" });
+  const login = spawnSync(process.execPath, [binary.pathname, "login"], { cwd: neutral, env, encoding: "utf8", input: `${fixture.endpoint}\ndo-not-print\ntest-app\n` });
   assert.equal(login.status, 0, login.stderr);
-  assert.equal(login.stderr, "");
+  assert.match(login.stderr, /REST endpoint.*API key.*App ID/us);
+  assert.doesNotMatch(login.stderr, /do-not-print/u);
   assert.doesNotMatch(login.stdout, /do-not-print/u);
   assert.deepEqual(JSON.parse(login.stdout), { logged_in: true, config_file: configFile, rest_endpoint_configured: true, app_id_configured: true, api_key_configured: true });
   assert.equal(statSync(join(configRoot, "braze")).mode & 0o777, 0o700);

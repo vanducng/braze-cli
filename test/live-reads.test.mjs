@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 function response(path) {
@@ -32,11 +35,12 @@ test("live-read runner exercises all 37 reads without exposing fixtures", async 
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   t.after(() => server.close());
   const secret = "must-not-print";
+  const configRoot = mkdtempSync(join(tmpdir(), "braze-live-reads-"));
+  mkdirSync(join(configRoot, "braze"));
+  writeFileSync(join(configRoot, "braze", "config.json"), JSON.stringify({ BRAZE_REST_ENDPOINT: `http://127.0.0.1:${server.address().port}`, BRAZE_API_KEY: secret, BRAZE_APP_ID: "app" }));
   const env = {
     ...process.env,
-    BRAZE_REST_ENDPOINT: `http://127.0.0.1:${server.address().port}`,
-    BRAZE_API_KEY: secret,
-    BRAZE_APP_ID: "app",
+    XDG_CONFIG_HOME: configRoot,
     BRAZE_LIVE_SUBSCRIPTION_GROUP_ID: "group",
     BRAZE_LIVE_EXTERNAL_ID: "user",
   };

@@ -6,15 +6,7 @@ The test fails when any command is unauthorized, returns embedded item errors, o
 
 ## Credentials
 
-Use the standard `.env` configuration:
-
-```dotenv
-BRAZE_REST_ENDPOINT=https://rest.example.braze.com
-BRAZE_API_KEY=<read-key>
-BRAZE_APP_ID=<app-id>
-```
-
-Run `braze login` from that directory to persist the resolved values for commands launched elsewhere.
+Run `braze login` and enter a read-only API key. The App ID is optional. The saved login works from any directory.
 
 The API key needs every read permission listed by `npm run test:live`. A Braze HTTP 403 is reported with the exact missing permission.
 

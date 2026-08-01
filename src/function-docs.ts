@@ -9,7 +9,7 @@ const packageDocs = "https://github.com/vanducng/braze-cli";
 
 export const functionDocumentation = {
   login: {
-    description: "Resolve Braze credentials from the environment or current .env file and save them in the user config for commands run from any directory.",
+    description: "Interactively save a Braze REST endpoint, API key, and optional App ID so commands work from any directory.",
     documentation: `${packageDocs}#configure`,
   },
   get_workspaces: {
