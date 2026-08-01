@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
+import { createInterface } from "node:readline/promises";
 import { Command, Option } from "commander";
 import { executeRequest } from "./client.ts";
-import { loadConfig, saveConfig } from "./config.ts";
+import { loadSavedConfig, saveConfig, validateConfig, type BrazeConfig } from "./config.ts";
 import { CliError } from "./errors.ts";
 import { flagName, functions, type FunctionDefinition, type Parameter } from "./functions.ts";
 
@@ -160,10 +161,69 @@ function findOrCreate(parent: Command, name: string): Command {
   return parent.commands.find((command) => command.name() === name) ?? parent.command(name);
 }
 
+async function promptText(message: string): Promise<string> {
+  const prompt = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return (await prompt.question(message)).trim();
+  } finally {
+    prompt.close();
+  }
+}
+
+async function promptSecret(message: string): Promise<string> {
+  if (!process.stdin.isTTY || !process.stderr.isTTY || typeof process.stdin.setRawMode !== "function") return promptText(message);
+  process.stderr.write(message);
+  const wasPaused = process.stdin.isPaused();
+  const wasRaw = process.stdin.isRaw;
+  process.stdin.setRawMode(true);
+  process.stdin.setEncoding("utf8");
+  process.stdin.resume();
+  return new Promise<string>((resolve, reject) => {
+    let value = "";
+    const finish = (error?: Error) => {
+      process.stdin.off("data", onData);
+      process.stdin.setRawMode(Boolean(wasRaw));
+      if (wasPaused) process.stdin.pause();
+      process.stderr.write("\n");
+      if (error) reject(error);
+      else resolve(value.trim());
+    };
+    const onData = (chunk: string | Buffer) => {
+      for (const character of String(chunk)) {
+        if (character === "\u0003") return finish(new CliError("usage_error", "Login cancelled."));
+        if (character === "\r" || character === "\n" || character === "\u0004") return finish();
+        if (character === "\u007f") value = [...value].slice(0, -1).join("");
+        else value += character;
+      }
+    };
+    process.stdin.on("data", onData);
+  });
+}
+
+async function promptLogin(current: BrazeConfig): Promise<BrazeConfig> {
+  process.stderr.write("Find the REST endpoint and API key in Braze under Settings > APIs and Identifiers > API Keys.\n");
+  if (!process.stdin.isTTY) {
+    const answers = readFileSync(0, "utf8").split(/\r?\n/u);
+    let index = 0;
+    const next = (message: string) => {
+      process.stderr.write(message);
+      return (answers[index++] ?? "").trim();
+    };
+    const endpoint = next(`REST endpoint${current.endpoint ? " (Enter to keep current)" : ""}: `) || current.endpoint;
+    const apiKey = next(`API key${current.apiKey ? " (Enter to keep current)" : ""}: `) || current.apiKey;
+    const appAnswer = next(`App ID (optional${current.appId ? "; Enter to keep current, - to clear" : ""}): `);
+    return validateConfig({ endpoint, apiKey, appId: appAnswer === "-" ? undefined : appAnswer || current.appId });
+  }
+  const endpoint = await promptText(`REST endpoint${current.endpoint ? " (Enter to keep current)" : ""}: `) || current.endpoint;
+  const apiKey = await promptSecret(`API key${current.apiKey ? " (Enter to keep current)" : ""}: `) || current.apiKey;
+  const appAnswer = await promptText(`App ID (optional${current.appId ? "; Enter to keep current, - to clear" : ""}): `);
+  return validateConfig({ endpoint, apiKey, appId: appAnswer === "-" ? undefined : appAnswer || current.appId });
+}
+
 export function createProgram(version: string, write: (value: unknown) => void = (value) => console.log(JSON.stringify(value))): Command {
   const program = new Command()
     .name("braze")
-    .description("Call the Braze REST API")
+    .description("Interact with the Braze platform")
     .version(version)
     .exitOverride()
     .configureOutput({ writeErr: () => {} });
@@ -184,12 +244,13 @@ export function createProgram(version: string, write: (value: unknown) => void =
         const value = option ? options[optionAttribute(option)] : undefined;
         if (value !== undefined) raw[parameter.name] = value;
       }
-      const config = loadConfig({ requireCredentials: definition.access !== "local" || definition.mcp === "login" });
       if (definition.mcp === "login") {
+        const config = await promptLogin(loadSavedConfig(process.env, false));
         const configFile = saveConfig(config);
         write({ logged_in: true, config_file: configFile, rest_endpoint_configured: true, app_id_configured: Boolean(config.appId), api_key_configured: true });
         return;
       }
+      const config = loadSavedConfig(process.env, definition.access !== "local");
       if (config.appId && definition.parameters.some(({ name }) => name === "app_id") && raw.app_id === undefined) raw.app_id = config.appId;
       const input = validateInput(definition, raw);
       write(definition.access === "local" ? { workspaces: [{ rest_endpoint: config.endpoint || null, app_id: config.appId ?? null, api_key_configured: Boolean(config.apiKey) }] } : await executeRequest(definition, input, config));

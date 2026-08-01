@@ -8,7 +8,7 @@ Examples use non-production placeholders. Replace every `<...>` value, review th
 
 - Function: `login`
 - Permission: `local`
-- Description: Resolve Braze credentials from the environment or current .env file and save them in the user config for commands run from any directory.
+- Description: Interactively save a Braze REST endpoint, API key, and optional App ID so commands work from any directory.
 - Access: `local`
 - Documentation: [Authoritative reference](https://github.com/vanducng/braze-cli#configure)
 

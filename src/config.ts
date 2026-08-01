@@ -10,37 +10,11 @@ export type BrazeConfig = {
   appId?: string;
 };
 
-type ConfigOptions = {
-  env?: NodeJS.ProcessEnv;
-  envFile?: string;
-  configFile?: string;
-  requireCredentials?: boolean;
+type BrazeConfigInput = {
+  endpoint?: string;
+  apiKey?: string;
+  appId?: string;
 };
-
-function parseEnvFile(path: string): Record<string, string> {
-  if (!existsSync(path)) return {};
-  const values: Record<string, string> = {};
-  for (const sourceLine of readFileSync(path, "utf8").split(/\r?\n/u)) {
-    const line = sourceLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const match = line.match(/^(?:export\s+)?([^:=\s]+)\s*[:=]\s*(.*)$/u);
-    if (!match?.[1]) continue;
-    let value = match[2] ?? "";
-    if (
-      value.length >= 2 &&
-      ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    values[match[1]] = value;
-  }
-  return values;
-}
-
-function first(...values: Array<string | undefined>): string | undefined {
-  return values.find((value) => value !== undefined && value !== "");
-}
 
 export function configFilePath(env: NodeJS.ProcessEnv = process.env): string {
   const root = env.XDG_CONFIG_HOME || (process.platform === "win32" ? env.APPDATA : undefined) || join(homedir(), ".config");
@@ -84,40 +58,26 @@ export function saveConfig(config: BrazeConfig, path = configFilePath()): string
   return path;
 }
 
-export function loadConfig(options: ConfigOptions = {}): BrazeConfig {
-  const env = options.env ?? process.env;
-  const file = parseEnvFile(resolve(options.envFile ?? ".env"));
-  const saved = parseConfigFile(resolve(options.configFile ?? configFilePath(env)));
-  const endpoint = first(
-    env.BRAZE_REST_ENDPOINT,
-    env.braze_host,
-    file.BRAZE_REST_ENDPOINT,
-    file.braze_host,
-    saved.BRAZE_REST_ENDPOINT,
-  );
-  const apiKey = first(
-    env.BRAZE_API_KEY,
-    env.braze_api_token,
-    file.BRAZE_API_KEY,
-    file.braze_api_token,
-    saved.BRAZE_API_KEY,
-  );
-  const appId = first(
-    env.BRAZE_APP_ID,
-    env.braze_login,
-    file.BRAZE_APP_ID,
-    file.braze_login,
-    saved.BRAZE_APP_ID,
-  );
+export function loadSavedConfig(env: NodeJS.ProcessEnv = process.env, requireCredentials = true): BrazeConfig {
+  const saved = parseConfigFile(configFilePath(env));
+  return validateConfig({
+    endpoint: saved.BRAZE_REST_ENDPOINT,
+    apiKey: saved.BRAZE_API_KEY,
+    appId: saved.BRAZE_APP_ID,
+  }, requireCredentials);
+}
 
-  if (options.requireCredentials !== false && (!endpoint || !apiKey)) {
+export function validateConfig(config: BrazeConfigInput, requireCredentials = true): BrazeConfig {
+  const endpoint = config.endpoint?.trim() ?? "";
+  const apiKey = config.apiKey?.trim() ?? "";
+  const appId = config.appId?.trim();
+
+  if (requireCredentials && (!endpoint || !apiKey)) {
     throw new CliError(
       "configuration_error",
       "Braze endpoint and API key are required.",
       {
-        nextSteps: [
-          "Set BRAZE_REST_ENDPOINT and BRAZE_API_KEY in the environment or .env file.",
-        ],
+        nextSteps: ["Run braze login to configure credentials."],
       },
     );
   }
@@ -128,20 +88,20 @@ export function loadConfig(options: ConfigOptions = {}): BrazeConfig {
       url = new URL(endpoint);
     } catch {
       throw new CliError("configuration_error", "Braze endpoint is not a valid URL.", {
-        nextSteps: ["Set BRAZE_REST_ENDPOINT to the workspace REST endpoint."],
+        nextSteps: ["Run braze login and enter the REST endpoint shown in Braze."],
       });
     }
     const local = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
     if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) {
       throw new CliError("configuration_error", "Braze endpoint must use HTTPS.", {
-        nextSteps: ["Use HTTPS, except for a local test server."],
+        nextSteps: ["Run braze login and enter an HTTPS REST endpoint."],
       });
     }
   }
 
   return {
-    endpoint: endpoint?.replace(/\/+$/u, "") ?? "",
-    apiKey: apiKey ?? "",
+    endpoint: endpoint.replace(/\/+$/u, ""),
+    apiKey,
     ...(appId ? { appId } : {}),
   };
 }
