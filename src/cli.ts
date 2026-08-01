@@ -30,13 +30,72 @@ function parseValue(parameter: Parameter, value: unknown): unknown {
     throw new Error();
   }
   if (parameter.type === "string[]") {
-    if (Array.isArray(value) && value.every((item) => typeof item === "string")) return value;
-    if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+    const items = Array.isArray(value) && value.every((item) => typeof item === "string") ? value : typeof value === "string" ? value.split(",").map((item) => item.trim()).filter(Boolean) : null;
+    if (items?.length && (!parameter.maxItems || items.length <= parameter.maxItems)) return items;
+    throw new Error();
+  }
+  if (parameter.type === "object" || parameter.type === "object[]") {
+    const parsed = typeof value === "string" ? JSON.parse(value) as unknown : value;
+    if (parameter.type === "object" && parsed && !Array.isArray(parsed) && typeof parsed === "object") return parsed;
+    if (parameter.type === "object[]" && Array.isArray(parsed) && parsed.length && (!parameter.maxItems || parsed.length <= parameter.maxItems) && parsed.every((item) => item && !Array.isArray(item) && typeof item === "object")) return parsed;
     throw new Error();
   }
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number) || (parameter.type === "integer" && !Number.isInteger(number)) || (parameter.type === "positive" && number <= 0)) throw new Error();
   return number;
+}
+
+function provided(value: unknown): boolean {
+  return value !== undefined && value !== false && value !== "" && (!Array.isArray(value) || value.length > 0);
+}
+
+function validationError(message: string): CliError {
+  return new CliError("validation_error", message, { nextSteps: ["Correct the input and retry."] });
+}
+
+function validateConsentFields(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) validateConsentFields(item);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const object = value as Record<string, unknown>;
+  for (const name of ["email_subscribe", "push_subscribe"]) {
+    if (object[name] !== undefined && !["opted_in", "subscribed", "unsubscribed"].includes(String(object[name]))) throw validationError(`Invalid consent state: ${name}.`);
+  }
+  if (object.subscription_groups !== undefined) {
+    if (!Array.isArray(object.subscription_groups) || !object.subscription_groups.length) throw validationError("subscription_groups must be a non-empty array.");
+    for (const item of object.subscription_groups) {
+      if (!item || Array.isArray(item) || typeof item !== "object") throw validationError("Invalid subscription_groups item.");
+      const group = item as Record<string, unknown>;
+      if (typeof group.subscription_group_id !== "string" || !["subscribed", "unsubscribed"].includes(String(group.subscription_state))) throw validationError("Invalid subscription group id or state.");
+      if (group.use_double_opt_in_logic !== undefined && typeof group.use_double_opt_in_logic !== "boolean") throw validationError("Invalid use_double_opt_in_logic value.");
+    }
+  }
+  for (const nested of Object.values(object)) validateConsentFields(nested);
+}
+
+function validateEndpointInput(definition: FunctionDefinition, input: Record<string, unknown>): void {
+  validateConsentFields(input);
+  if (definition.mcp === "update_subscription_group_status_v2") {
+    for (const item of input.subscription_groups as Record<string, unknown>[]) {
+      const identifiers = ["external_ids", "emails", "phones"].filter((name) => provided(item[name]));
+      if (identifiers.length !== 1 || !Array.isArray(item[identifiers[0] ?? ""]) || !(item[identifiers[0] ?? ""] as unknown[]).every((value) => typeof value === "string")) throw validationError("Each subscription_groups item must provide exactly one non-empty string array: external_ids, emails, or phones.");
+      if ((item[identifiers[0] ?? ""] as unknown[]).length > 50) throw validationError("Subscription group updates accept at most 50 identifiers per item.");
+    }
+  }
+  if (definition.mcp === "get_invalid_phone_numbers") {
+    const hasDates = provided(input.start_date) && provided(input.end_date);
+    if (!provided(input.phone_numbers) && !hasDates) throw validationError("Provide phone_numbers or both start_date and end_date.");
+    if ((provided(input.start_date) !== provided(input.end_date)) && !provided(input.phone_numbers)) throw validationError("Provide both start_date and end_date.");
+    if (typeof input.limit === "number" && input.limit > 500) throw validationError("limit must be 500 or less.");
+  }
+  if (definition.mcp === "track_users_sync") {
+    for (const name of ["attributes", "events", "purchases"]) {
+      if (Array.isArray(input[name]) && input[name].length > 1) throw validationError(`${name} accepts at most one object for synchronous tracking.`);
+    }
+  }
+  if (definition.mcp === "track_users" && ["attributes", "events", "purchases"].reduce((total, name) => total + (Array.isArray(input[name]) ? input[name].length : 0), 0) > 75) throw validationError("User tracking accepts at most 75 objects per request.");
 }
 
 export function validateInput(definition: FunctionDefinition, raw: Record<string, unknown>): Record<string, unknown> {
@@ -54,11 +113,15 @@ export function validateInput(definition: FunctionDefinition, raw: Record<string
     }
   }
   for (const group of definition.exactlyOne ?? []) {
-    if (group.filter((name) => input[name] !== undefined).length !== 1) throw new CliError("validation_error", `Provide exactly one of: ${group.join(", ")}.`, { nextSteps: ["Correct the input and retry."] });
+    if (group.filter((name) => provided(input[name])).length !== 1) throw validationError(`Provide exactly one of: ${group.join(", ")}.`);
   }
   for (const group of definition.atLeastOne ?? []) {
-    if (!group.some((name) => input[name] !== undefined)) throw new CliError("validation_error", `Provide at least one of: ${group.join(", ")}.`, { nextSteps: ["Correct the input and retry."] });
+    if (!group.some((name) => provided(input[name]))) throw validationError(`Provide at least one of: ${group.join(", ")}.`);
   }
+  for (const group of definition.notTogether ?? []) {
+    if (group.filter((name) => provided(input[name])).length > 1) throw validationError(`Do not combine: ${group.join(", ")}.`);
+  }
+  validateEndpointInput(definition, input);
   return input;
 }
 

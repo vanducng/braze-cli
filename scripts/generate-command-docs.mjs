@@ -12,12 +12,12 @@ const lines = [
 ];
 
 for (const definition of functions) {
-  lines.push(`## \`braze ${commandPath(definition)}\``, "", `- MCP function: \`${definition.mcp}\``, `- Permission: \`${definition.permission}\``);
+  lines.push(`## \`braze ${commandPath(definition)}\``, "", `- Function: \`${definition.mcp}\``, `- Permission: \`${definition.permission}\``);
   if (definition.method) lines.push(`- Request: \`${definition.method} ${definition.path}\``);
   lines.push(`- Access: \`${definition.access}\``, "", "Options:", "", "- `--input <json|@file>` - load a JSON input object");
   if (definition.access === "write") lines.push("- `--confirm` - confirm the write operation");
   for (const parameter of definition.parameters) {
-    lines.push(`- \`--${flagName(parameter)} <value>\` - \`${parameter.name}\`, ${parameter.type}${parameter.required ? ", required" : ""}`);
+    lines.push(`- \`--${flagName(parameter)} <value>\` - \`${parameter.name}\`, ${parameter.type}${parameter.required ? ", required" : ""}${parameter.maxItems ? `, maximum ${parameter.maxItems} items` : ""}`);
   }
   lines.push("");
 }

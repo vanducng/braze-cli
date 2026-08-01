@@ -38,7 +38,10 @@ export async function executeRequest(
   let body: BodyInit | undefined;
 
   if (definition.method === "GET") {
-    for (const [key, value] of values) url.searchParams.append(key, valueToString(value));
+    for (const [key, value] of values) {
+      if (Array.isArray(value)) for (const item of value) url.searchParams.append(`${key}[]`, valueToString(item));
+      else url.searchParams.append(key, valueToString(value));
+    }
   } else if (definition.mcp === "create_media_library_asset" && input.asset_file) {
     const form = new FormData();
     const filePath = valueToString(input.asset_file);

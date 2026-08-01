@@ -1,6 +1,6 @@
 # braze-cli
 
-Automation-friendly TypeScript CLI for the Braze REST API. It provides a category-first command for every function in the current [Braze MCP API function list](https://www.braze.com/docs/developer_guide/mcp_server/available_api_functions) without using an SDK or MCP transport.
+Automation-friendly TypeScript CLI for the Braze REST API without an SDK or MCP transport. It provides category-first commands for the current [Braze MCP API function list](https://www.braze.com/docs/developer_guide/mcp_server/available_api_functions) plus complete [Subscription Groups](https://www.braze.com/docs/api/endpoints/subscription_groups), [SMS](https://www.braze.com/docs/api/endpoints/sms), [Messaging](https://www.braze.com/docs/api/endpoints/messaging), and [User Data](https://www.braze.com/docs/api/endpoints/user_data) endpoint coverage.
 
 ## Requirements
 
@@ -41,6 +41,8 @@ braze campaign list --page 0
 braze campaign get --campaign-id <id>
 braze segment data-series --segment-id <id> --length 7
 braze template email get --email-template-id <id>
+braze subscription update --subscription-group-id <id> --subscription-state subscribed --phone +15555550123 --use-double-opt-in-logic true --confirm
+braze subscription update --subscription-group-id <id> --subscription-state unsubscribed --external-id <user-id> --confirm
 ```
 
 Every command accepts individual flags or `--input '<json>'`. Prefix a path with `@` to load JSON from a file. Explicit flags override fields loaded through `--input`.
@@ -51,9 +53,9 @@ braze campaign get --input @request.json --campaign-id <override-id>
 
 Success writes one Braze JSON value to stdout. Failures write one redacted JSON error to stderr and exit nonzero. The CLI does not paginate automatically.
 
-All five write commands require `--confirm`. Review the request before adding it. Live tests in this repository use only `campaign list`; writes are tested against a local server.
+All 33 write commands require `--confirm`. Review the request before adding it. Live tests in this repository use only `campaign list`; writes are tested against a local server.
 
-See the generated [command reference](docs/commands.md) for all 42 commands, permissions, endpoints, and flags.
+See the generated [command reference](docs/commands.md) for all 71 commands, permissions, endpoints, and flags.
 
 ## Develop
 

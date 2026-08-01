@@ -25,6 +25,8 @@ function sample(parameter) {
   if (parameter.type === "integer" || parameter.type === "positive") return 1;
   if (parameter.type === "boolean") return true;
   if (parameter.type === "string[]") return ["tag"];
+  if (parameter.type === "object") return { value: "sample" };
+  if (parameter.type === "object[]") return [{ value: "sample" }];
   if (parameter.name.endsWith("_at") || parameter.name.includes("time")) return "2026-01-01T00:00:00Z";
   return `${parameter.name}/value`;
 }
@@ -58,7 +60,7 @@ async function serverFixture(t) {
   };
 }
 
-test("all 41 REST functions construct and send their documented request", async (t) => {
+test("all 70 REST functions construct and send their documented request", async (t) => {
   const fixture = await serverFixture(t);
   const config = { endpoint: fixture.endpoint, apiKey: "test-key" };
   for (const definition of functions.filter(({ method }) => method)) {
@@ -74,12 +76,17 @@ test("all 41 REST functions construct and send their documented request", async 
     const pathNames = new Set([...definition.path.matchAll(/\{([^}]+)\}/gu)].map((match) => match[1]));
     const expectedValues = Object.entries(input).filter(([name]) => !pathNames.has(name));
     if (definition.method === "GET") {
-      assert.deepEqual(Object.fromEntries(url.searchParams), Object.fromEntries(expectedValues.map(([key, value]) => [key, String(value)])), commandPath(definition));
+      const expected = new URLSearchParams();
+      for (const [key, value] of expectedValues) {
+        if (Array.isArray(value)) for (const item of value) expected.append(`${key}[]`, String(item));
+        else expected.append(key, String(value));
+      }
+      assert.deepEqual([...url.searchParams], [...expected], commandPath(definition));
     } else {
       assert.deepEqual(JSON.parse(request.body), Object.fromEntries(expectedValues), commandPath(definition));
     }
   }
-  assert.equal(fixture.requests.length, 41);
+  assert.equal(fixture.requests.length, 70);
 });
 
 test("media file input uses multipart", async (t) => {
