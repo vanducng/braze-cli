@@ -1,0 +1,67 @@
+# braze-cli
+
+Automation-friendly TypeScript CLI for the Braze REST API. It provides a category-first command for every function in the current [Braze MCP API function list](https://www.braze.com/docs/developer_guide/mcp_server/available_api_functions) without using an SDK or MCP transport.
+
+## Requirements
+
+- Node.js 22.12 or newer
+- A Braze REST API key with only the permissions needed by the commands you run
+
+## Install
+
+```sh
+git clone https://github.com/vanducng/braze-cli.git
+cd braze-cli
+npm ci
+npm pack
+npm install --global ./braze-cli-0.1.0.tgz
+braze --help
+```
+
+The package is not published to npm yet. After publication, `npm install --global braze-cli` will be the supported registry install.
+
+## Configure
+
+Preferred environment variables:
+
+```dotenv
+BRAZE_REST_ENDPOINT=https://rest.example.braze.com
+BRAZE_API_KEY=<api-key>
+BRAZE_APP_ID=<optional-app-id>
+```
+
+The CLI also reads a `.env` file in the current directory. Existing `braze_host`, `braze_api_token`, and `braze_login` keys remain supported. Resolution order is process uppercase, process compatibility keys, `.env` uppercase, then `.env` compatibility keys.
+
+Keep `.env` out of source control. `braze workspace list` reports the configured endpoint, optional app ID, and whether a key exists, but never prints the key.
+
+## Use
+
+```sh
+braze campaign list --page 0
+braze campaign get --campaign-id <id>
+braze segment data-series --segment-id <id> --length 7
+braze template email get --email-template-id <id>
+```
+
+Every command accepts individual flags or `--input '<json>'`. Prefix a path with `@` to load JSON from a file. Explicit flags override fields loaded through `--input`.
+
+```sh
+braze campaign get --input @request.json --campaign-id <override-id>
+```
+
+Success writes one Braze JSON value to stdout. Failures write one redacted JSON error to stderr and exit nonzero. The CLI does not paginate automatically.
+
+All five write commands require `--confirm`. Review the request before adding it. Live tests in this repository use only `campaign list`; writes are tested against a local server.
+
+See the generated [command reference](docs/commands.md) for all 42 commands, permissions, endpoints, and flags.
+
+## Develop
+
+```sh
+npm ci
+npm run docs:generate
+npm run verify
+npm run test:live
+```
+
+`npm run test:live` reads local credentials and prints only a campaign count.
