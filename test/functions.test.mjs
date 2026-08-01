@@ -4,6 +4,7 @@ import { commandPath, functions } from "../lib/functions.js";
 import { validateInput } from "../lib/cli.js";
 
 const expected = `
+login
 workspace list
 campaign list
 campaign get
@@ -77,9 +78,9 @@ content-block create
 content-block update
 `.trim().split("\n");
 
-test("catalog exactly matches the approved 71-command contract", () => {
+test("catalog exactly matches the approved 72-command contract", () => {
   assert.deepEqual(functions.map(commandPath), expected);
-  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 71);
+  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 72);
   assert.equal(functions.filter(({ access }) => access === "write").length, 33);
   assert.equal(functions.filter(({ method }) => method).length, 70);
 });
@@ -125,6 +126,21 @@ test("every path placeholder has a required parameter", () => {
     for (const name of definition.path?.matchAll(/\{([^}]+)\}/gu) ?? []) {
       assert.equal(definition.parameters.find((parameter) => parameter.name === name[1])?.required, true, `${commandPath(definition)}: ${name[1]}`);
     }
+  }
+});
+
+test("every function has detailed agent documentation and a valid example", () => {
+  const remote = functions.filter(({ method }) => method);
+  assert.equal(new Set(remote.map(({ documentation }) => documentation)).size, 70);
+  for (const definition of functions) {
+    assert.ok(definition.description.length >= 60, `${commandPath(definition)}: description`);
+    const documentation = new URL(definition.documentation);
+    assert.equal(documentation.protocol, "https:", commandPath(definition));
+    if (!definition.method) continue;
+    assert.equal(documentation.hostname, "www.braze.com", commandPath(definition));
+    assert.ok(definition.exampleInput, `${commandPath(definition)}: example input`);
+    assert.doesNotMatch(JSON.stringify(definition.exampleInput), /api[_-]?key|secret|token/iu, commandPath(definition));
+    assert.deepEqual(validateInput(definition, definition.exampleInput), definition.exampleInput, commandPath(definition));
   }
 });
 
