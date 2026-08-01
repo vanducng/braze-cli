@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Review pull request
-        uses: vanducng/miu-cr@main
+        uses: vanducng/miu-cr@c65eeb68721951e78e67c470e45793d96f342b4d
         with:
           api-key: ${{ secrets.ZAI_API_KEY }}
           base-url: https://api.z.ai/api/anthropic
