@@ -1,6 +1,6 @@
 {
   "name": "braze-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Automation-friendly CLI for the Braze REST API",
   "license": "MIT",
   "repository": {
@@ -16,7 +16,9 @@
   "files": [
     "lib",
     "docs/commands.md",
-    "README.md"
+    "docs/live-read-validation.md",
+    "README.md",
+    "skills"
   ],
   "engines": {
     "node": ">=22.12.0"
@@ -28,7 +30,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test test/*.test.mjs",
     "test:package": "node scripts/package-smoke.mjs",
-    "test:live": "npm run build && node test/live-smoke.mjs",
+    "test:live": "npm run build && node test/live-reads.mjs",
     "verify": "npm run docs:check && npm run typecheck && npm test && npm run test:package",
     "prepack": "npm run build"
   },

@@ -97,7 +97,7 @@ Options:
 - `--canvas-id <value>` - `canvas_id`, string, required
 - `--ending-at <value>` - `ending_at`, string, required
 - `--starting-at <value>` - `starting_at`, string
-- `--length <value>` - `length`, string
+- `--length <value>` - `length`, integer
 - `--include-variant-breakdown <value>` - `include_variant_breakdown`, boolean
 - `--include-step-breakdown <value>` - `include_step_breakdown`, boolean
 - `--include-deleted-step-data <value>` - `include_deleted_step_data`, boolean
@@ -115,7 +115,7 @@ Options:
 - `--canvas-id <value>` - `canvas_id`, string, required
 - `--ending-at <value>` - `ending_at`, string, required
 - `--starting-at <value>` - `starting_at`, string
-- `--length <value>` - `length`, string
+- `--length <value>` - `length`, integer
 - `--include-variant-breakdown <value>` - `include_variant_breakdown`, boolean
 - `--include-step-breakdown <value>` - `include_step_breakdown`, boolean
 - `--include-deleted-step-data <value>` - `include_deleted_step_data`, boolean

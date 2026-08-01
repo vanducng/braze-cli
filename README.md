@@ -10,15 +10,9 @@ Automation-friendly TypeScript CLI for the Braze REST API without an SDK or MCP 
 ## Install
 
 ```sh
-git clone https://github.com/vanducng/braze-cli.git
-cd braze-cli
-npm ci
-npm pack
-npm install --global ./braze-cli-0.1.0.tgz
+npm install --global braze-cli
 braze --help
 ```
-
-The package is not published to npm yet. After publication, `npm install --global braze-cli` will be the supported registry install.
 
 ## Configure
 
@@ -53,9 +47,11 @@ braze campaign get --input @request.json --campaign-id <override-id>
 
 Success writes one Braze JSON value to stdout. Failures write one redacted JSON error to stderr and exit nonzero. The CLI does not paginate automatically.
 
-All 33 write commands require `--confirm`. Review the request before adding it. Live tests in this repository use only `campaign list`; writes are tested against a local server.
+All 33 write commands require `--confirm`. Review the request before adding it. Live tests are read-only; writes are tested against a local server.
 
 See the generated [command reference](docs/commands.md) for all 71 commands, permissions, endpoints, and flags.
+
+Agents can use the packaged [`$braze` skill](skills/braze/SKILL.md) for safe discovery, consent operations, error handling, and delivery verification.
 
 ## Develop
 
@@ -66,4 +62,8 @@ npm run verify
 npm run test:live
 ```
 
-`npm run test:live` reads local credentials and prints only a campaign count.
+`npm run test:live` exercises all 37 read commands with local credentials and prints only safe status metadata. See [live read validation](docs/live-read-validation.md) for permissions and optional fixtures.
+
+## Release
+
+CI verifies Node.js 22.12 and 24. Publishing runs only from a stable GitHub Release whose `vX.Y.Z` tag matches `package.json`; npm authentication uses trusted publishing with OIDC instead of a stored write token.
