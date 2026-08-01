@@ -20,19 +20,24 @@ const packed = spawnSync("npm", ["pack", "--json", "--silent"], { encoding: "utf
 assert.equal(packed.status, 0, packed.stderr);
 const pack = JSON.parse(packed.stdout)[0];
 const archive = resolve(pack.filename);
+const packageVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
+let prefix;
 try {
   const paths = pack.files.map(({ path }) => path);
   assert.ok(paths.includes("lib/index.js"));
   assert.ok(paths.includes("docs/commands.md"));
+  assert.ok(paths.includes("docs/live-read-validation.md"));
+  assert.ok(paths.includes("skills/braze/SKILL.md"));
+  assert.ok(paths.includes("skills/braze/agents/openai.yaml"));
   assert.ok(!paths.some((path) => path === ".env" || path.startsWith("test/") || path.startsWith("src/")));
   assert.equal(readFileSync("lib/index.js", "utf8").split("\n")[0], "#!/usr/bin/env node");
 
-  const prefix = mkdtempSync(join(tmpdir(), "braze-package-"));
+  prefix = mkdtempSync(join(tmpdir(), "braze-package-"));
   const installed = spawnSync("npm", ["install", "--ignore-scripts", "--prefix", prefix, archive], { encoding: "utf8" });
   assert.equal(installed.status, 0, installed.stderr);
   const binary = join(prefix, "node_modules", ".bin", "braze");
   const cleanEnv = { PATH: process.env.PATH };
-  assert.equal(spawnSync(binary, ["--version"], { encoding: "utf8" }).stdout.trim(), "0.1.0");
+  assert.equal(spawnSync(binary, ["--version"], { encoding: "utf8" }).stdout.trim(), packageVersion);
   assert.match(spawnSync(binary, ["--help"], { encoding: "utf8" }).stdout, /campaign/u);
   const workspace = spawnSync(binary, ["workspace", "list"], { cwd: prefix, env: cleanEnv, encoding: "utf8" });
   assert.equal(workspace.status, 0, workspace.stderr);
@@ -64,4 +69,5 @@ try {
   process.stdout.write(`Package smoke passed: ${pack.files.length} files.\n`);
 } finally {
   rmSync(archive, { force: true });
+  if (prefix) rmSync(prefix, { force: true, recursive: true });
 }

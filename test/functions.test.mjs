@@ -128,6 +128,13 @@ test("every path placeholder has a required parameter", () => {
   }
 });
 
+test("analytics lengths are validated as integers", () => {
+  for (const command of ["campaign data-series", "canvas data-series", "canvas data-summary", "event data-series", "kpi dau", "kpi mau", "kpi new-users", "kpi uninstalls", "purchase quantity-series", "purchase revenue-series", "segment data-series", "send data-series", "session data-series"]) {
+    const definition = functions.find((candidate) => commandPath(candidate) === command);
+    assert.equal(definition?.parameters.find(({ name }) => name === "length")?.type, "integer", command);
+  }
+});
+
 test("validation enforces types and cross-field rules", () => {
   const subscriptions = functions.find(({ mcp }) => mcp === "get_subscription_group_status");
   const update = functions.find(({ mcp }) => mcp === "update_content_block");
