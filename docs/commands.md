@@ -1717,7 +1717,7 @@ braze email hard-bounces --input '{"start_date":"2026-07-01","end_date":"2026-08
 
 - Function: `change_email_subscription_status`
 - Permission: `email.status`
-- Description: Set the account-level email subscription state for one or more addresses. This global state supersedes subscription groups on send, so a group-level unsubscribe alone does not globally unsubscribe a user.
+- Description: Set the account-level email subscription state for up to 50 addresses as opted_in, subscribed, or unsubscribed. This global state supersedes subscription groups on send, so a group-level unsubscribe alone does not globally unsubscribe a user.
 - Request: `POST /email/status`
 - Access: `write`
 - Documentation: [Authoritative reference](https://www.braze.com/docs/api/endpoints/email/post_email_subscription_status)
@@ -1743,8 +1743,8 @@ braze email status --input '{"email":["<email>"],"subscription_state":"unsubscri
 
 - `--input <json|@file>` - load a JSON input object
 - `--confirm` - confirm the write operation
-- `--email <value>` - `email`, string[], required
-- `--subscription-state <value>` - `subscription_state`, string, required, one of: `subscribed`, `unsubscribed`
+- `--email <value>` - `email`, string[], required, maximum 50 items
+- `--subscription-state <value>` - `subscription_state`, string, required, one of: `opted_in`, `subscribed`, `unsubscribed`
 
 ## `braze subscription group-status`
 

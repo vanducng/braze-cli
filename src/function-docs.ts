@@ -272,7 +272,7 @@ export const functionDocumentation = {
     exampleInput: { start_date: "2026-07-01", end_date: "2026-08-01", limit: 500 },
   },
   change_email_subscription_status: {
-    description: "Set the account-level email subscription state for one or more addresses. This global state supersedes subscription groups on send, so a group-level unsubscribe alone does not globally unsubscribe a user.",
+    description: "Set the account-level email subscription state for up to 50 addresses as opted_in, subscribed, or unsubscribed. This global state supersedes subscription groups on send, so a group-level unsubscribe alone does not globally unsubscribe a user.",
     documentation: `${api}/email/post_email_subscription_status`,
     exampleInput: { email: ["<email>"], subscription_state: "unsubscribed" },
   },
