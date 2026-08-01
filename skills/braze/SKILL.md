@@ -69,7 +69,7 @@ npm run verify
 npm run test:live
 ```
 
-`npm run test:live` executes all read commands through the CLI and emits only safe metadata. Supply `BRAZE_LIVE_*` fixture variables documented in `docs/live-read-validation.md` when Braze cannot expose an identifier through a list endpoint. Any failed or blocked command makes the live test fail.
+`npm run test:live` executes all read commands through the CLI and emits only safe metadata. Supply `BRAZE_LIVE_*` fixture variables documented in `docs/live-read-validation.md` when validation must return resource data. A workspace without a fixture may report `verification: authorized_no_fixture` only after Braze returns HTTP 400 or 404; authentication, permission, and other failures still fail the run.
 
 ## Verify completion
 
