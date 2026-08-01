@@ -18,7 +18,9 @@ function run(binary, args, options) {
 
 const packed = spawnSync("npm", ["pack", "--json", "--silent"], { encoding: "utf8" });
 assert.equal(packed.status, 0, packed.stderr);
-const pack = JSON.parse(packed.stdout)[0];
+const packedMetadata = JSON.parse(packed.stdout);
+const [pack] = Array.isArray(packedMetadata) ? packedMetadata : Object.values(packedMetadata);
+assert.ok(pack?.filename && Array.isArray(pack.files), "npm pack did not return package metadata");
 const archive = resolve(pack.filename);
 const packageVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
 let prefix;
