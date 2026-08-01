@@ -1,0 +1,42 @@
+{
+  "name": "braze-cli",
+  "version": "0.1.0",
+  "description": "Automation-friendly CLI for the Braze REST API",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vanducng/braze-cli.git"
+  },
+  "homepage": "https://github.com/vanducng/braze-cli#readme",
+  "bugs": "https://github.com/vanducng/braze-cli/issues",
+  "type": "module",
+  "bin": {
+    "braze": "lib/index.js"
+  },
+  "files": [
+    "lib",
+    "docs/commands.md",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "docs:generate": "npm run build && node scripts/generate-command-docs.mjs",
+    "docs:check": "npm run build && node scripts/generate-command-docs.mjs --check",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "test:package": "node scripts/package-smoke.mjs",
+    "test:live": "npm run build && node test/live-smoke.mjs",
+    "verify": "npm run docs:check && npm run typecheck && npm test && npm run test:package",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "commander": "15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "7.0.2"
+  }
+}
