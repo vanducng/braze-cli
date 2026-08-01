@@ -14,6 +14,8 @@ BRAZE_API_KEY=<read-key>
 BRAZE_APP_ID=<app-id>
 ```
 
+Run `braze login` from that directory to persist the resolved values for commands launched elsewhere.
+
 The API key needs every read permission listed by `npm run test:live`. A Braze HTTP 403 is reported with the exact missing permission.
 
 ## Optional fixtures

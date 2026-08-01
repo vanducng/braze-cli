@@ -16,15 +16,23 @@ braze --help
 
 ## Configure
 
-Preferred environment variables:
+Standard environment variables:
 
 ```dotenv
+BRAZE_APP_ID=<optional-app-id>
 BRAZE_REST_ENDPOINT=https://rest.example.braze.com
 BRAZE_API_KEY=<api-key>
-BRAZE_APP_ID=<optional-app-id>
 ```
 
-The CLI also reads a `.env` file in the current directory. Existing `braze_host`, `braze_api_token`, and `braze_login` keys remain supported. Resolution order is process uppercase, process compatibility keys, `.env` uppercase, then `.env` compatibility keys.
+The CLI also reads a `.env` file in the current directory. Process environment values override `.env`. Legacy lowercase keys remain supported for backward compatibility, but new configuration should use the uppercase names above.
+
+Persist the resolved credentials once so commands work from any directory:
+
+```sh
+braze login
+```
+
+`braze login` reads the process environment and current `.env`, then writes the standard names to `$XDG_CONFIG_HOME/braze/config.json` when configured or `~/.config/braze/config.json` otherwise. The directory is restricted to the current user and the file is created with mode `0600`. Process environment and current `.env` values override the saved config. The API key is never printed.
 
 Keep `.env` out of source control. `braze workspace list` reports the configured endpoint, optional app ID, and whether a key exists, but never prints the key.
 
@@ -49,7 +57,7 @@ Success writes one Braze JSON value to stdout. Failures write one redacted JSON 
 
 All 33 write commands require `--confirm`. Review the request before adding it. Live tests are read-only; writes are tested against a local server.
 
-See the generated [command reference](docs/commands.md) for all 71 commands, permissions, endpoints, and flags.
+See the generated [command reference](docs/commands.md) for all 72 commands, permissions, endpoints, and flags.
 
 Agents can use the packaged [`$braze` skill](skills/braze/SKILL.md) for safe discovery, consent operations, error handling, and delivery verification.
 

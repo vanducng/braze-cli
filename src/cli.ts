@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Command, Option } from "commander";
 import { executeRequest } from "./client.ts";
-import { loadConfig } from "./config.ts";
+import { loadConfig, saveConfig } from "./config.ts";
 import { CliError } from "./errors.ts";
 import { flagName, functions, type FunctionDefinition, type Parameter } from "./functions.ts";
 
@@ -143,8 +143,8 @@ export function createProgram(version: string, write: (value: unknown) => void =
   for (const definition of functions) {
     let parent = program;
     for (const group of definition.command.slice(0, -1)) parent = findOrCreate(parent, group);
-    const leaf = parent.command(definition.command.at(-1) ?? "").description(`${definition.mcp} (${definition.permission})`);
-    leaf.addOption(new Option("--input <json|@file>", "JSON input object or @file"));
+    const leaf = parent.command(definition.command.at(-1) ?? "").description(definition.description ?? `${definition.mcp} (${definition.permission})`);
+    if (definition.mcp !== "login") leaf.addOption(new Option("--input <json|@file>", "JSON input object or @file"));
     if (definition.access === "write") leaf.addOption(new Option("--confirm", "confirm the write operation"));
     for (const parameter of definition.parameters) {
       leaf.addOption(new Option(`--${flagName(parameter)} <value>`, parameter.name));
@@ -157,7 +157,12 @@ export function createProgram(version: string, write: (value: unknown) => void =
         const value = option ? options[optionAttribute(option)] : undefined;
         if (value !== undefined) raw[parameter.name] = value;
       }
-      const config = loadConfig({ requireCredentials: definition.access !== "local" });
+      const config = loadConfig({ requireCredentials: definition.access !== "local" || definition.mcp === "login" });
+      if (definition.mcp === "login") {
+        const configFile = saveConfig(config);
+        write({ logged_in: true, config_file: configFile, rest_endpoint_configured: true, app_id_configured: Boolean(config.appId), api_key_configured: true });
+        return;
+      }
       if (config.appId && definition.parameters.some(({ name }) => name === "app_id") && raw.app_id === undefined) raw.app_id = config.appId;
       const input = validateInput(definition, raw);
       write(definition.access === "local" ? { workspaces: [{ rest_endpoint: config.endpoint || null, app_id: config.appId ?? null, api_key_configured: Boolean(config.apiKey) }] } : await executeRequest(definition, input, config));

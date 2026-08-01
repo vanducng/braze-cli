@@ -1,6 +1,9 @@
 ---
 name: braze
 description: Operate the Braze REST API through braze-cli for category-first campaign, Canvas, segment, messaging, subscription, SMS, user, template, catalog, analytics, and content-block workflows. Use for bounded Braze reads, explicit opt-in or opt-out changes, structured JSON automation, permission diagnosis, and verified CLI delivery.
+metadata:
+  version: "1.1.0"
+  binary: braze
 ---
 
 # Braze
@@ -25,6 +28,15 @@ Use `braze` as the canonical binary. Treat generated help and JSON responses as 
    ```
 
 3. Use `BRAZE_REST_ENDPOINT`, `BRAZE_API_KEY`, and optional `BRAZE_APP_ID`. The CLI also reads the current directory's `.env`. Never print, copy, or commit credential values.
+
+4. Persist the resolved credentials when commands must work from any directory:
+
+   ```sh
+   braze login
+   braze workspace list
+   ```
+
+   Login writes the standard names to the user config with mode `0600` and never prints the API key. Process environment and current `.env` values override the saved config.
 
 ## Read with discovery
 

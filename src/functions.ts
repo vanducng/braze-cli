@@ -15,6 +15,7 @@ export type FunctionDefinition = {
   mcp: string;
   permission: string;
   access: Access;
+  description?: string;
   method?: "GET" | "POST";
   path?: string;
   parameters: Parameter[];
@@ -54,6 +55,7 @@ const blockState = { ...s("state"), choices: ["active", "draft"] };
 const blockFields = [s("name"), s("content"), s("description"), blockState, a("tags")];
 
 export const functions: FunctionDefinition[] = [
+  { command: ["login"], mcp: "login", permission: "local", access: "local", description: "Save the current Braze credentials for use from any directory", parameters: [] },
   { command: ["workspace", "list"], mcp: "get_workspaces", permission: "local", access: "local", parameters: [] },
   read("campaign list", "get_campaign_list", "campaigns.list", "/campaigns/list", listParams),
   read("campaign get", "get_campaign_details", "campaigns.details", "/campaigns/details", [s("campaign_id", true), b("post_launch_draft_version"), b("include_has_translatable_content")]),

@@ -2,6 +2,16 @@
 
 Generated from the CLI catalog. Run `npm run docs:generate` after changing commands.
 
+## `braze login`
+
+- Function: `login`
+- Permission: `local`
+- Description: Save the current Braze credentials for use from any directory
+- Access: `local`
+
+Options:
+
+
 ## `braze workspace list`
 
 - Function: `get_workspaces`

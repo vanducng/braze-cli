@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -164,9 +164,43 @@ test("JSON input works, explicit flags win, and errors use stderr only", async (
 test("workspace output is useful and never exposes the API key", () => {
   const directory = mkdtempSync(join(tmpdir(), "braze-workspace-"));
   writeFileSync(join(directory, ".env"), "braze_host:https://rest.example.com\nbraze_api_token:do-not-print\nbraze_login:app-id\n");
-  const result = spawnSync(process.execPath, [binary.pathname, "workspace", "list"], { cwd: directory, env: {}, encoding: "utf8" });
+  const result = spawnSync(process.execPath, [binary.pathname, "workspace", "list"], { cwd: directory, env: { XDG_CONFIG_HOME: join(directory, "config") }, encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, "");
   assert.doesNotMatch(result.stdout, /do-not-print/u);
   assert.deepEqual(JSON.parse(result.stdout), { workspaces: [{ rest_endpoint: "https://rest.example.com", app_id: "app-id", api_key_configured: true }] });
+});
+
+test("login persists credentials for commands from another directory", async (t) => {
+  const fixture = await serverFixture(t);
+  const directory = mkdtempSync(join(tmpdir(), "braze-login-"));
+  const source = join(directory, "source");
+  const neutral = join(directory, "neutral");
+  const configRoot = join(directory, "config");
+  const configFile = join(configRoot, "braze", "config.json");
+  const env = { PATH: process.env.PATH, XDG_CONFIG_HOME: configRoot };
+  mkdirSync(source);
+  mkdirSync(neutral);
+  writeFileSync(join(source, ".env"), `BRAZE_APP_ID=test-app\nBRAZE_REST_ENDPOINT=${fixture.endpoint}\nBRAZE_API_KEY=do-not-print\n`);
+
+  const help = spawnSync(process.execPath, [binary.pathname, "login", "--help"], { cwd: neutral, env, encoding: "utf8" });
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /Save the current Braze credentials/u);
+  assert.doesNotMatch(help.stdout, /--input/u);
+  const login = spawnSync(process.execPath, [binary.pathname, "login"], { cwd: source, env, encoding: "utf8" });
+  assert.equal(login.status, 0, login.stderr);
+  assert.equal(login.stderr, "");
+  assert.doesNotMatch(login.stdout, /do-not-print/u);
+  assert.deepEqual(JSON.parse(login.stdout), { logged_in: true, config_file: configFile, rest_endpoint_configured: true, app_id_configured: true, api_key_configured: true });
+  assert.equal(statSync(join(configRoot, "braze")).mode & 0o777, 0o700);
+  assert.equal(statSync(configFile).mode & 0o777, 0o600);
+  assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")), { BRAZE_APP_ID: "test-app", BRAZE_REST_ENDPOINT: fixture.endpoint, BRAZE_API_KEY: "do-not-print" });
+
+  const workspace = spawnSync(process.execPath, [binary.pathname, "workspace", "list"], { cwd: neutral, env, encoding: "utf8" });
+  assert.equal(workspace.status, 0, workspace.stderr);
+  assert.doesNotMatch(workspace.stdout, /do-not-print/u);
+  assert.deepEqual(JSON.parse(workspace.stdout), { workspaces: [{ rest_endpoint: fixture.endpoint, app_id: "test-app", api_key_configured: true }] });
+  const request = await run(["campaign", "list"], { cwd: neutral, env });
+  assert.equal(request.status, 0, request.stderr);
+  assert.deepEqual(JSON.parse(request.stdout), { accepted: true });
 });

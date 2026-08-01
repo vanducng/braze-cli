@@ -1,6 +1,6 @@
 {
   "name": "braze-cli",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Automation-friendly CLI for the Braze REST API",
   "license": "MIT",
   "repository": {

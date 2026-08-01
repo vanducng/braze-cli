@@ -4,6 +4,7 @@ import { commandPath, functions } from "../lib/functions.js";
 import { validateInput } from "../lib/cli.js";
 
 const expected = `
+login
 workspace list
 campaign list
 campaign get
@@ -77,9 +78,9 @@ content-block create
 content-block update
 `.trim().split("\n");
 
-test("catalog exactly matches the approved 71-command contract", () => {
+test("catalog exactly matches the approved 72-command contract", () => {
   assert.deepEqual(functions.map(commandPath), expected);
-  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 71);
+  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 72);
   assert.equal(functions.filter(({ access }) => access === "write").length, 33);
   assert.equal(functions.filter(({ method }) => method).length, 70);
 });
