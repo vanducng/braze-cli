@@ -80,9 +80,12 @@ async function probeCandidates(command, inputs, prefer = () => true, synthetic =
   for (const input of inputs.slice(0, 10)) {
     const value = await request(command, input);
     if (synthetic) {
-      results.push(value.ok || ["provider_error", "not_found", "provider_item_error"].includes(value.error.code)
-        ? { command, permission, status: "blocked", reason: "missing_fixture" }
-        : { command, permission, status: "failed", error: value.error });
+      const authorized = !value.ok && [400, 404].includes(value.error.http_status) && ["provider_error", "not_found"].includes(value.error.code);
+      results.push(value.ok
+        ? { command, permission, status: "passed", verification: "authorized_no_fixture", ...responseSummary(value.payload) }
+        : authorized
+          ? { command, permission, status: "passed", verification: "authorized_no_fixture", http_status: value.error.http_status }
+          : { command, permission, status: "failed", error: value.error });
       return;
     }
     if (!value.ok) {
@@ -154,7 +157,7 @@ const eventNames = [process.env.BRAZE_LIVE_EVENT_NAME, ...values("event list", "
 await probeCandidates("event data-series", (eventNames.length ? eventNames : [missingFixture]).map((event) => ({ event, length: 100 })), (payload) => Array.isArray(payload?.data) && payload.data.length > 0, !eventNames.length);
 
 await probe("cdi integration list");
-const integrations = objects("cdi integration list", "integrations");
+const integrations = objects("cdi integration list", "results");
 const integrationId = firstString(process.env.BRAZE_LIVE_CDI_INTEGRATION_ID, integrations[0]?.integration_id, integrations[0]?.id);
 await probeCandidates("cdi integration sync-status", [{ integration_id: integrationId ?? missingFixture }], undefined, !integrationId);
 

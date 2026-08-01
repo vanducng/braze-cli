@@ -6,10 +6,10 @@ import test from "node:test";
 function response(path) {
   if (path === "/campaigns/list") return { campaigns: [{ id: "campaign", is_api_campaign: true }] };
   if (path === "/canvas/list") return { canvases: [{ id: "canvas" }] };
-  if (path === "/catalogs") return { catalogs: [{ name: "catalog" }] };
+  if (path === "/catalogs") return { catalogs: [] };
   if (path === "/catalogs/catalog/items") return { items: [{ id: "item" }] };
   if (path === "/events/list") return { events: ["event"] };
-  if (path === "/cdi/integrations") return { integrations: [{ integration_id: "integration" }] };
+  if (path === "/cdi/integrations") return { results: [{ integration_id: "integration" }] };
   if (path === "/messages/scheduled_broadcasts") return { scheduled_broadcasts: [] };
   if (path === "/purchases/product_list") return { products: [] };
   if (path === "/app_group/sdk_authentication/keys") return { keys: [] };
@@ -24,8 +24,10 @@ function response(path) {
 
 test("live-read runner exercises all 37 reads without exposing fixtures", async (t) => {
   const server = createServer((request, reply) => {
-    reply.writeHead(200, { "Content-Type": "application/json" });
-    reply.end(JSON.stringify(response(new URL(request.url, "http://localhost").pathname)));
+    const url = new URL(request.url, "http://localhost");
+    const missingFixture = url.pathname.includes("braze-cli-missing-fixture") || [...url.searchParams.values()].includes("braze-cli-missing-fixture");
+    reply.writeHead(missingFixture ? (url.pathname === "/sends/data_series" ? 400 : 404) : 200, { "Content-Type": "application/json" });
+    reply.end(JSON.stringify(missingFixture ? { message: "fixture unavailable" } : response(url.pathname)));
   });
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   t.after(() => server.close());
@@ -35,8 +37,6 @@ test("live-read runner exercises all 37 reads without exposing fixtures", async 
     BRAZE_REST_ENDPOINT: `http://127.0.0.1:${server.address().port}`,
     BRAZE_API_KEY: secret,
     BRAZE_APP_ID: "app",
-    BRAZE_LIVE_SEND_CAMPAIGN_ID: "campaign",
-    BRAZE_LIVE_SEND_ID: "send",
     BRAZE_LIVE_SUBSCRIPTION_GROUP_ID: "group",
     BRAZE_LIVE_EXTERNAL_ID: "user",
   };
@@ -53,4 +53,5 @@ test("live-read runner exercises all 37 reads without exposing fixtures", async 
   assert.doesNotMatch(result.stdout, new RegExp(secret, "u"));
   const summary = JSON.parse(result.stdout);
   assert.deepEqual({ ok: summary.ok, total: summary.total, passed: summary.passed, failed: summary.failed, blocked: summary.blocked }, { ok: true, total: 37, passed: 37, failed: 0, blocked: 0 });
+  assert.equal(summary.results.filter(({ verification }) => verification === "authorized_no_fixture").length, 3);
 });
