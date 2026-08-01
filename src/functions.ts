@@ -50,6 +50,15 @@ const read = (
   parameters: Parameter[] = [],
   rules: Pick<FunctionDefinition, "exactlyOne" | "atLeastOne" | "notTogether"> = {},
 ): FunctionDefinition => documented({ command: command.split(" "), mcp, permission, access: "read", method: "GET", path, parameters, ...rules });
+// Braze export endpoints are POST but never mutate, so they keep read access, retries, and no --confirm.
+const readPost = (
+  command: string,
+  mcp: string,
+  permission: string,
+  path: string,
+  parameters: Parameter[] = [],
+  rules: Pick<FunctionDefinition, "exactlyOne" | "atLeastOne" | "notTogether"> = {},
+): FunctionDefinition => documented({ command: command.split(" "), mcp, permission, access: "read", method: "POST", path, parameters, ...rules });
 const write = (
   command: string,
   mcp: string,
@@ -117,10 +126,14 @@ export const functions: FunctionDefinition[] = [
   read("session data-series", "get_session_data_series", "sessions.data_series", "/sessions/data_series", [...rangeParams, s("unit"), s("segment_id")]),
   read("sms invalid-phone list", "get_invalid_phone_numbers", "sms.invalid_phone_numbers", "/sms/invalid_phone_numbers", [s("start_date"), s("end_date"), i("limit"), i("offset"), a("phone_numbers", false, 50), { ...s("reason"), choices: ["provider_error", "deactivated"] }]),
   write("sms invalid-phone remove", "remove_invalid_phone_numbers", "sms.invalid_phone_numbers.remove", "/sms/invalid_phone_numbers/remove", [a("phone_numbers", true, 50)]),
+  read("email unsubscribes", "query_unsubscribed_emails", "email.unsubscribes", "/email/unsubscribes", [s("start_date"), s("end_date"), n("limit"), n("offset"), { ...s("sort_direction"), choices: ["asc", "desc"] }, s("email")]),
+  read("email hard-bounces", "query_hard_bounced_emails", "email.hard_bounces", "/email/hard_bounces", [s("start_date"), s("end_date"), n("limit"), n("offset"), s("email")]),
+  write("email status", "change_email_subscription_status", "email.status", "/email/status", [a("email", true, 50), { ...s("subscription_state", true), choices: ["opted_in", "subscribed", "unsubscribed"] }]),
   read("subscription group-status", "get_subscription_group_status", "subscription.status.get", "/subscription/status/get", [s("subscription_group_id", true), a("external_id", false, 50), a("email", false, 50), a("phone", false, 50)], { atLeastOne: [["external_id", "email", "phone"]], notTogether: [["email", "phone"]] }),
   read("subscription user-groups", "get_user_subscription_groups", "subscription.groups.get", "/subscription/user/status", [a("external_id", false, 50), a("email", false, 50), a("phone", false, 50), i("limit"), i("offset")], { atLeastOne: [["external_id", "email", "phone"]], notTogether: [["email", "phone"]] }),
   write("subscription update", "update_subscription_group_status", "subscription.status.set", "/subscription/status/set", [s("subscription_group_id", true), { ...s("subscription_state", true), choices: ["subscribed", "unsubscribed"] }, a("external_id", false, 50), a("email", false, 50), a("phone", false, 50), b("use_double_opt_in_logic")], { atLeastOne: [["external_id", "email", "phone"]], notTogether: [["email", "phone"]] }),
   write("subscription update-v2", "update_subscription_group_status_v2", "subscription.status.set", "/v2/subscription/status/set", [oa("subscription_groups", true)]),
+  readPost("user export-ids", "export_users_by_identifier", "users.export.ids", "/users/export/ids", [a("external_ids", false, 50), oa("user_aliases", false, 50), s("device_id"), s("braze_id"), s("email_address"), s("phone"), a("fields_to_export")], { atLeastOne: [["external_ids", "user_aliases", "device_id", "braze_id", "email_address", "phone"]] }),
   write("user alias create", "create_user_alias", "users.alias.new", "/users/alias/new", [oa("user_aliases", true, 50)]),
   write("user alias update", "update_user_alias", "users.alias.update", "/users/alias/update", [oa("alias_updates", true, 50)]),
   write("user delete", "delete_users", "users.delete", "/users/delete", [a("external_ids", false, 50), oa("user_aliases", false, 50), a("braze_ids", false, 50), a("email_addresses", false, 50), a("phone_numbers", false, 50)], { exactlyOne: [["external_ids", "user_aliases", "braze_ids", "email_addresses", "phone_numbers"]] }),

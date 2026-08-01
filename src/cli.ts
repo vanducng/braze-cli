@@ -91,6 +91,12 @@ function validateEndpointInput(definition: FunctionDefinition, input: Record<str
     if ((provided(input.start_date) !== provided(input.end_date)) && !provided(input.phone_numbers)) throw validationError("Provide both start_date and end_date.");
     if (typeof input.limit === "number" && input.limit > 500) throw validationError("limit must be 500 or less.");
   }
+  if (definition.mcp === "query_unsubscribed_emails" || definition.mcp === "query_hard_bounced_emails") {
+    const hasDates = provided(input.start_date) && provided(input.end_date);
+    if (!provided(input.email) && !hasDates) throw validationError("Provide email or both start_date and end_date.");
+    if ((provided(input.start_date) !== provided(input.end_date)) && !provided(input.email)) throw validationError("Provide both start_date and end_date.");
+    if (typeof input.limit === "number" && input.limit > 500) throw validationError("limit must be 500 or less.");
+  }
   if (definition.mcp === "track_users_sync") {
     for (const name of ["attributes", "events", "purchases"]) {
       if (Array.isArray(input[name]) && input[name].length > 1) throw validationError(`${name} accepts at most one object for synchronous tracking.`);

@@ -193,6 +193,16 @@ const subscriptionGroupId = firstString(process.env.BRAZE_LIVE_SUBSCRIPTION_GROU
 await probeCandidates("subscription group-status", [{ subscription_group_id: subscriptionGroupId ?? missingFixture, ...(identifier ?? { external_id: [missingFixture] }) }], undefined, !(subscriptionGroupId && identifier));
 await probeCandidates("subscription user-groups", [identifier ?? { external_id: [missingFixture] }], undefined, !identifier);
 
+await probe("email unsubscribes", { start_date: weekAgo, end_date: today, limit: 1 });
+await probe("email hard-bounces", { start_date: weekAgo, end_date: today, limit: 1 });
+// export-ids takes external_ids/email_address/phone, not the array-shaped identifier used above.
+const exportIdentifier = process.env.BRAZE_LIVE_EXTERNAL_ID ? { external_ids: [process.env.BRAZE_LIVE_EXTERNAL_ID] }
+  : process.env.BRAZE_LIVE_EMAIL ? { email_address: process.env.BRAZE_LIVE_EMAIL }
+    : process.env.BRAZE_LIVE_PHONE ? { phone: process.env.BRAZE_LIVE_PHONE }
+      : typeof invalidPhones[0]?.phone === "string" ? { phone: invalidPhones[0].phone }
+        : undefined;
+await probeCandidates("user export-ids", [exportIdentifier ?? { external_ids: [missingFixture] }], undefined, !exportIdentifier);
+
 await probe("template email list", { limit: 1 });
 const emailTemplates = objects("template email list", "templates");
 const emailTemplateId = firstString(process.env.BRAZE_LIVE_EMAIL_TEMPLATE_ID, emailTemplates[0]?.email_template_id, emailTemplates[0]?.id);

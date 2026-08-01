@@ -55,10 +55,14 @@ send data-series
 session data-series
 sms invalid-phone list
 sms invalid-phone remove
+email unsubscribes
+email hard-bounces
+email status
 subscription group-status
 subscription user-groups
 subscription update
 subscription update-v2
+user export-ids
 user alias create
 user alias update
 user delete
@@ -78,11 +82,11 @@ content-block create
 content-block update
 `.trim().split("\n");
 
-test("catalog exactly matches the approved 72-command contract", () => {
+test("catalog exactly matches the approved 76-command contract", () => {
   assert.deepEqual(functions.map(commandPath), expected);
-  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 72);
-  assert.equal(functions.filter(({ access }) => access === "write").length, 33);
-  assert.equal(functions.filter(({ method }) => method).length, 70);
+  assert.equal(new Set(functions.map(({ mcp }) => mcp)).size, 76);
+  assert.equal(functions.filter(({ access }) => access === "write").length, 34);
+  assert.equal(functions.filter(({ method }) => method).length, 74);
 });
 
 test("linked Braze categories include every indexed endpoint", () => {
@@ -108,7 +112,9 @@ test("linked Braze categories include every indexed endpoint", () => {
     "/canvas/duplicate",
     "/messages/live_activity/update",
   ]);
+  assert.deepEqual(paths("email"), ["/email/unsubscribes", "/email/hard_bounces", "/email/status"]);
   assert.deepEqual(paths("user"), [
+    "/users/export/ids",
     "/users/alias/new",
     "/users/alias/update",
     "/users/delete",
@@ -131,7 +137,7 @@ test("every path placeholder has a required parameter", () => {
 
 test("every function has detailed agent documentation and a valid example", () => {
   const remote = functions.filter(({ method }) => method);
-  assert.equal(new Set(remote.map(({ documentation }) => documentation)).size, 70);
+  assert.equal(new Set(remote.map(({ documentation }) => documentation)).size, 74);
   for (const definition of functions) {
     assert.ok(definition.description.length >= 60, `${commandPath(definition)}: description`);
     const documentation = new URL(definition.documentation);
@@ -182,6 +188,22 @@ test("opt-in and opt-out inputs are validated before writes", () => {
   assert.throws(() => validateInput(track, { attributes: [{ external_id: "user", email_subscribe: "invalid" }] }), /Invalid consent state/u);
   assert.throws(() => validateInput(track, { attributes: [{ external_id: "user", subscription_groups: [{ subscription_group_id: "group", subscription_state: "invalid" }] }] }), /Invalid subscription group/u);
   assert.throws(() => validateInput(track, { attributes: Array.from({ length: 75 }, () => ({})), events: [{}] }), /at most 75/u);
+
+  const emailStatus = functions.find(({ mcp }) => mcp === "change_email_subscription_status");
+  assert.ok(emailStatus);
+  assert.deepEqual(validateInput(emailStatus, { email: "a@example.com", subscription_state: "opted_in" }).email, ["a@example.com"]);
+  assert.throws(() => validateInput(emailStatus, { email: ["a@example.com"], subscription_state: "invalid" }), /Invalid or missing input/u);
+  assert.throws(() => validateInput(emailStatus, { email: Array.from({ length: 51 }, (_, index) => `user${index}@example.com`), subscription_state: "unsubscribed" }), /Invalid or missing input/u);
+
+  for (const mcp of ["query_unsubscribed_emails", "query_hard_bounced_emails"]) {
+    const query = functions.find((candidate) => candidate.mcp === mcp);
+    assert.ok(query, mcp);
+    assert.throws(() => validateInput(query, { end_date: "2026-08-01" }), /both start_date and end_date/u, mcp);
+    assert.throws(() => validateInput(query, { limit: 1 }), /Provide email or both/u, mcp);
+    assert.throws(() => validateInput(query, { start_date: "2026-07-01", end_date: "2026-08-01", limit: 501 }), /500 or less/u, mcp);
+    assert.deepEqual(validateInput(query, { email: "a@example.com" }).email, "a@example.com", mcp);
+    assert.equal(validateInput(query, { start_date: "2026-07-01", end_date: "2026-08-01", limit: 500 }).limit, 500, mcp);
+  }
   assert.throws(() => validateInput(send, { broadcast: true }), /at least one/u);
   assert.throws(() => validateInput(send, { external_user_ids: ["user"], recipient_subscription_state: "invalid" }), /Invalid or missing input/u);
   assert.throws(() => validateInput(invalidPhones, {}), /phone_numbers or both/u);

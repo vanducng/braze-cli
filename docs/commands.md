@@ -1644,6 +1644,108 @@ braze sms invalid-phone remove --input '{"phone_numbers":["+15555550123"]}' --co
 - `--confirm` - confirm the write operation
 - `--phone-numbers <value>` - `phone_numbers`, string[], required, maximum 50 items
 
+## `braze email unsubscribes`
+
+- Function: `query_unsubscribed_emails`
+- Permission: `email.unsubscribes`
+- Description: List email addresses that unsubscribed in a date range, each with its unsubscribed_at timestamp. Use for opt-out reconciliation and backfill; the payload carries no external ID, channel, or subscription group.
+- Request: `GET /email/unsubscribes`
+- Access: `read`
+- Documentation: [Authoritative reference](https://www.braze.com/docs/api/endpoints/email/get_query_unsubscribed_email_addresses)
+
+### Example JSON input
+
+```json
+{
+  "start_date": "2026-07-01",
+  "end_date": "2026-08-01",
+  "limit": 500
+}
+```
+
+### Example command
+
+```sh
+braze email unsubscribes --input '{"start_date":"2026-07-01","end_date":"2026-08-01","limit":500}'
+```
+
+### Options
+
+- `--input <json|@file>` - load a JSON input object
+- `--start-date <value>` - `start_date`, string
+- `--end-date <value>` - `end_date`, string
+- `--limit <value>` - `limit`, positive
+- `--offset <value>` - `offset`, positive
+- `--sort-direction <value>` - `sort_direction`, string, one of: `asc`, `desc`
+- `--email <value>` - `email`, string
+
+## `braze email hard-bounces`
+
+- Function: `query_hard_bounced_emails`
+- Permission: `email.hard_bounces`
+- Description: List email addresses that hard bounced in a date range, each with its hard_bounced_at timestamp. Hard bounces are deliverability failures, not consent withdrawals.
+- Request: `GET /email/hard_bounces`
+- Access: `read`
+- Documentation: [Authoritative reference](https://www.braze.com/docs/api/endpoints/email/get_query_hard_bounces)
+
+### Example JSON input
+
+```json
+{
+  "start_date": "2026-07-01",
+  "end_date": "2026-08-01",
+  "limit": 500
+}
+```
+
+### Example command
+
+```sh
+braze email hard-bounces --input '{"start_date":"2026-07-01","end_date":"2026-08-01","limit":500}'
+```
+
+### Options
+
+- `--input <json|@file>` - load a JSON input object
+- `--start-date <value>` - `start_date`, string
+- `--end-date <value>` - `end_date`, string
+- `--limit <value>` - `limit`, positive
+- `--offset <value>` - `offset`, positive
+- `--email <value>` - `email`, string
+
+## `braze email status`
+
+- Function: `change_email_subscription_status`
+- Permission: `email.status`
+- Description: Set the account-level email subscription state for up to 50 addresses as opted_in, subscribed, or unsubscribed. This global state supersedes subscription groups on send, so a group-level unsubscribe alone does not globally unsubscribe a user.
+- Request: `POST /email/status`
+- Access: `write`
+- Documentation: [Authoritative reference](https://www.braze.com/docs/api/endpoints/email/post_email_subscription_status)
+
+### Example JSON input
+
+```json
+{
+  "email": [
+    "<email>"
+  ],
+  "subscription_state": "unsubscribed"
+}
+```
+
+### Example command
+
+```sh
+braze email status --input '{"email":["<email>"],"subscription_state":"unsubscribed"}' --confirm
+```
+
+### Options
+
+- `--input <json|@file>` - load a JSON input object
+- `--confirm` - confirm the write operation
+- `--email <value>` - `email`, string[], required, maximum 50 items
+- `--subscription-state <value>` - `subscription_state`, string, required, one of: `opted_in`, `subscribed`, `unsubscribed`
+
 ## `braze subscription group-status`
 
 - Function: `get_subscription_group_status`
@@ -1788,6 +1890,48 @@ braze subscription update-v2 --input '{"subscription_groups":[{"subscription_gro
 - `--input <json|@file>` - load a JSON input object
 - `--confirm` - confirm the write operation
 - `--subscription-groups <value>` - `subscription_groups`, object[], required
+
+## `braze user export-ids`
+
+- Function: `export_users_by_identifier`
+- Permission: `users.export.ids`
+- Description: Export user profiles by identifier, including the account-level email_subscribe and push_subscribe states and subscription group membership. This is the only way to read a user's global subscription state, which overrides group-level status on send.
+- Request: `POST /users/export/ids`
+- Access: `read`
+- Documentation: [Authoritative reference](https://www.braze.com/docs/api/endpoints/export/user_data/post_users_identifier)
+
+### Example JSON input
+
+```json
+{
+  "external_ids": [
+    "<external-id>"
+  ],
+  "fields_to_export": [
+    "external_id",
+    "email",
+    "email_subscribe",
+    "subscription_groups"
+  ]
+}
+```
+
+### Example command
+
+```sh
+braze user export-ids --input '{"external_ids":["<external-id>"],"fields_to_export":["external_id","email","email_subscribe","subscription_groups"]}'
+```
+
+### Options
+
+- `--input <json|@file>` - load a JSON input object
+- `--external-ids <value>` - `external_ids`, string[], maximum 50 items
+- `--user-aliases <value>` - `user_aliases`, object[], maximum 50 items
+- `--device-id <value>` - `device_id`, string
+- `--braze-id <value>` - `braze_id`, string
+- `--email-address <value>` - `email_address`, string
+- `--phone <value>` - `phone`, string
+- `--fields-to-export <value>` - `fields_to_export`, string[]
 
 ## `braze user alias create`
 
