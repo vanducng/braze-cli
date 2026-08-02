@@ -71,4 +71,4 @@ npm run test:live
 
 ## Release
 
-CI verifies Node.js 22.12 and 24. Publishing runs only from a stable GitHub Release whose `vX.Y.Z` tag matches `package.json`; npm authentication uses trusted publishing with OIDC instead of a stored write token.
+CI verifies Node.js 22.12 and 24. Releases are automatic: bump `version` in `package.json` and merge to `main`. The publish workflow skips when that version is already on npm, otherwise it verifies, publishes, then creates the `vX.Y.Z` tag and GitHub Release. npm authentication uses trusted publishing with OIDC instead of a stored write token.
