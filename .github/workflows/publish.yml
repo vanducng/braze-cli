@@ -60,7 +60,7 @@ jobs:
   # Runs when npm succeeded or was skipped, so a run that dies after publish self-heals.
   release:
     needs: [check, npm]
-    if: always() && needs.npm.result != 'failure'
+    if: always() && needs.check.result == 'success' && needs.npm.result != 'failure'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
