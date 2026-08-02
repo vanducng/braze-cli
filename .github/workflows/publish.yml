@@ -57,10 +57,18 @@ jobs:
             sleep 3
           done
           exit 1
-      - name: Tag and release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
+  # Runs when npm succeeded or was skipped, so a run that dies after publish self-heals.
+  release:
+    needs: [check, npm]
+    if: always() && needs.npm.result != 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - run: |
           git tag "v${VERSION}" && git push origin "v${VERSION}" || true
           gh release view "v${VERSION}" >/dev/null 2>&1 ||
             gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
