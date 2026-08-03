@@ -71,4 +71,4 @@ npm run test:live
 
 ## Release
 
-CI verifies Node.js 22.12 and 24. Releases are automatic: bump `version` in `package.json` and merge to `main`. The publish workflow skips when that version is already on npm, otherwise it verifies, publishes, then creates the `vX.Y.Z` tag and GitHub Release. npm authentication uses trusted publishing with OIDC instead of a stored write token.
+CI verifies Node.js 22.12 and 24. Release Please owns versions, changelog, tags, and GitHub Releases: merge Conventional Commits to `main` and it maintains a release PR (`fix:` bumps patch, `feat:` and breaking changes bump minor while pre-1.0). Merging that release PR publishes to npm in the same workflow run. Never bump `version` or edit `CHANGELOG.md` by hand. npm authentication uses trusted publishing with OIDC instead of a stored write token.
